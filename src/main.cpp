@@ -4,16 +4,35 @@
 #include <Adafruit_MPU6050.h>
 #include <Adafruit_Sensor.h>
 #include <step.h>
-//
+float Kp=5000;
+float Ki=0;
+float Kd=0.01;
+float accel = 0;
+float absolutemax_accel = 30;
+float absolutemax_speed = 50;
+float setpoint = 0;
+float tilt_x =0, tilt_x_prev=0;
+float k=0;
+#define LED 2
+
+
+
+float value_speed = 9;
+float motorspeed =0;
 float tiltx_prev = 0.0;
 float c = 0.85;
-float gyro_x = 0;
+float gyro_y = 0;
 float gyro_x_prev = 0;
 float dt = 0, last_time=0, dg=0;
 float tilt_var =0;
 float now;
-float integral, proportional, derivative;
-float Kp, Ki, Kd;
+float integral, proportional, derivative, previous, output=0;
+
+
+
+float error=0, error_prev1 =0, error_prev2=0,controller_prev1 =0, controller_output=0;
+
+float az=0, gz_now=0, gz_prev=0, tilt_comp_prev =0, tilt_comp = 0;
 
 // The Stepper pins
 const int STEPPER1_DIR_PIN  = 16;
@@ -35,7 +54,7 @@ const int PRINT_INTERVAL    = 500;
 const int LOOP_INTERVAL     = 10;
 const int STEPPER_INTERVAL_US = 20;
 
-const float kx = 20.0;
+const float kx = 100.0;
 const float VREF = 4.096;
 
 //Global objects
@@ -80,6 +99,7 @@ uint16_t readADC(uint8_t channel) {
 
 void setup()
 {
+  pinMode(LED,OUTPUT);
   Serial.begin(115200);
   pinMode(TOGGLE_PIN,OUTPUT);
 
@@ -104,8 +124,10 @@ void setup()
   Serial.println("Initialised Interrupt for Stepper");
 
   //Set motor acceleration values
-  step1.setAccelerationRad(10.0);
-  step2.setAccelerationRad(10.0);
+  
+
+  step1.setAccelerationRad(accel);
+  step2.setAccelerationRad(accel);
 
   //Enable the stepper motor drivers
   pinMode(STEPPER_EN_PIN,OUTPUT);
@@ -118,9 +140,48 @@ void setup()
 
 }
 
-void complementary(){
-  Serial.print("yay");
+float pid(float error){
+  if (dt <= 0) return 0;
+
+  float integral_max = 5;
+  
+  
+  proportional = error;
+  integral += integral * dt;
+  integral = constrain(integral, -integral_max, integral_max);
+  derivative = (error-previous) / dt;
+  previous = error;
+  output = (Kp * proportional) + (Ki * integral) + (Kd * derivative);
+
+  if(output > absolutemax_accel)
+    return absolutemax_accel;
+  else if(output < -absolutemax_accel)
+    return -absolutemax_accel;
+
+
+   
+  return output;
 }
+
+// float pid_1(float error1){
+  
+//   float A = Kp +(Ki * dt) + (Kd/dt);
+//   float B = (-Kp - 2*(Kd/dt));
+//   float C = (Kd/dt);
+
+//   controller_output = controller_prev1 + (error1 * A) + (error_prev1 * B) + (error_prev2 * C);
+
+//   error_prev2 = error_prev1;
+//   error_prev1 = error1;
+//   controller_prev1 = controller_output;
+
+//  // if(controller_output > absolutemax)
+//  //   return absolutemax;
+//  // else if(controller_output < -absolutemax)
+//  //return -absolutemax;
+
+//   return controller_output;
+// }
 
 
 void loop()
@@ -134,30 +195,56 @@ void loop()
   if (millis() > loopTimer) {
     loopTimer += LOOP_INTERVAL;
     now = millis();
-    dt = now - last_time;
+    dt = (now - last_time)/1000;
     last_time = now;
     // Fetch data from MPU6050
     sensors_event_t a, g, temp;
     mpu.getEvent(&a, &g, &temp);
 
-    //Calculate Tilt using accelerometer and sin x = x approximation for a small tilt angle
-    gyro_x_prev =gyro_x;
-    gyro_x = a.gyro.z;
-    dt = (now - last_time) / 1000.00;
-    dg = gyro_x - gyro_x_prev;
-    tiltx_prev = tiltx;
-    tilt_var = (1-c)*(a.acceleration.z) +(c)*(dg + tiltx_prev);
-    tiltx = a.acceleration.z/9.67;
+
+
     
-    
-    
-    //Set target motor speed proportional to tilt angle
-    //Note: this is for demonstrating accelerometer and motors - it won't work as a balance controller
-    step1.setTargetSpeedRad(-tiltx*kx);
-    step2.setTargetSpeedRad(tiltx*kx);
+    // float accel_angle = atan2(a.acceleration.y, a.acceleration.z) * 180.0 / PI;
+    float accel_angle = a.acceleration.z / 9.67;
+    gyro_y = g.gyro.y; // degrees per second
+
+    tilt_x = 0.98 * (tilt_x_prev + gyro_y * dt) + 0.02 * accel_angle;
+    tilt_x_prev = tilt_x;
 
 
 
+    error = (setpoint - (tilt_x));
+    accel = pid(error);
+
+
+    if(motorspeed > absolutemax_speed){
+      motorspeed = absolutemax_speed;
+    }
+    else if(motorspeed < -absolutemax_speed){
+      motorspeed = absolutemax_speed;
+    }
+
+
+    if(accel<0){
+      motorspeed = -value_speed;
+    }
+    else{
+      motorspeed = value_speed;
+    }
+
+
+    step1.setTargetSpeedRad(motorspeed);
+    step2.setTargetSpeedRad(-motorspeed);
+
+    step1.setAccelerationRad(accel);
+    step2.setAccelerationRad(accel);
+
+    k=k+1;
+    if(k==701){
+      setpoint = tilt_x;
+      digitalWrite(LED,HIGH);
+    }
+    
 
   }
   
@@ -165,15 +252,15 @@ void loop()
   //Line format: X-axis tilt, Motor speed, A0 Voltage
   if (millis() > printTimer) {
     printTimer += PRINT_INTERVAL;
-    Serial.print(tiltx*1000);
-    Serial.print(' ');
     Serial.print(step1.getSpeedRad());
-    Serial.print(' ');
-    Serial.print((readADC(0) * VREF)/4095.0);
-    Serial.print(' ');
-    Serial.print(tilt_var);
-    Serial.print(' ');
-    Serial.print(gyro_x);
+    Serial.print(',');
+    Serial.print(tilt_x);
+    Serial.print(',');
+    Serial.print(motorspeed);
+    Serial.print(',');
+    Serial.print(setpoint);
+    Serial.print(',');
+    Serial.print(accel);
     Serial.println();
   }
 }
