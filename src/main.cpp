@@ -4,20 +4,38 @@
 #include <Adafruit_MPU6050.h>
 #include <Adafruit_Sensor.h>
 #include <step.h>
-float Kp=5000;
+#include <cstring>
+#include <iostream>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <stdlib.h>
+#include <WiFi.h> 
+
+float Kp=3000;
 float Ki=0;
 float Kd=0.01;
 float accel = 0;
-float absolutemax_accel = 30;
-float absolutemax_speed = 50;
+float absolutemax_accel = 75;
+float absolutemax_speed = 35;
 float setpoint = 0;
 float tilt_x =0, tilt_x_prev=0;
 float k=0;
 #define LED 2
 
+float actual_motor_speed =0;
+float actual_motor_speed_prev=0;
+float motorspeed_setpoint=0;
+float Kmp= 1, kmi = 1, kmd =1;
+float angle_found =0;
+float error_speed =0;
+float absolutemax_tilt = 0.18;
+float absolutemin_tilt= 0.11;
 
 
-float value_speed = 9;
+
+float value_speed = 35;
 float motorspeed =0;
 float tiltx_prev = 0.0;
 float c = 0.85;
@@ -57,6 +75,13 @@ const int STEPPER_INTERVAL_US = 20;
 const float kx = 100.0;
 const float VREF = 4.096;
 
+const char* ssid = "meow";
+const char* password = "hello12345@";
+
+// Global client socket for loop 
+int clientSocket = -1;
+
+
 //Global objects
 ESP32Timer ITimer(3);
 Adafruit_MPU6050 mpu;         //Default pins for I2C are SCL: IO22, SDA: IO21
@@ -67,6 +92,42 @@ step step2(STEPPER_INTERVAL_US,STEPPER2_STEP_PIN,STEPPER2_DIR_PIN );
 
 //Interrupt Service Routine for motor update
 //Note: ESP32 doesn't support floating point calculations in an ISR
+
+void Wificonnect(){
+  WiFi.begin(ssid, password);
+  Serial.print("Connecting to WiFi");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("\nWiFi connected. IP: ");
+  Serial.println(WiFi.localIP());
+}
+
+void Socketconnect(){
+  // Connect socket
+  clientSocket = socket(AF_INET, SOCK_STREAM, 0);
+
+  // specifying address
+  sockaddr_in serverAddress;
+  serverAddress.sin_family = AF_INET;
+  serverAddress.sin_port = htons(12000);
+  inet_pton(AF_INET, "192.168.70.169", &serverAddress.sin_addr);
+
+  
+  // sending connection request
+  int connection = connect(clientSocket, (struct sockaddr*)&serverAddress,
+          sizeof(serverAddress));
+  
+  if(connection == 0){
+    Serial.println("HELL YEAH IT'S CONNECTED TO THE SERVER");
+  }
+  else{
+    Serial.println(":( check wifi");
+  }
+}
+
+
 bool TimerHandler(void * timerNo)
 {
   static bool toggle = false;
@@ -138,9 +199,38 @@ void setup()
   digitalWrite(ADC_CS_PIN, HIGH);
   SPI.begin(ADC_SCK_PIN, ADC_MISO_PIN, ADC_MOSI_PIN, ADC_CS_PIN);
 
+  Wificonnect();
+
+  Socketconnect();
+
 }
 
-float pid(float error){
+
+float pid_2(float error){
+  if (dt <= 0) return 0;
+
+  float integral_max = 2;
+  
+  
+  proportional = error;
+  integral += integral * dt;
+  integral = constrain(integral, -integral_max, integral_max);
+  derivative = (error-previous) / dt;
+  previous = error;
+  output = (Kp * proportional) + (Ki * integral) + (Kd * derivative);
+
+  if(output > absolutemax_tilt)
+    return absolutemax_tilt;
+  else if(output < -absolutemin_tilt)
+    return -absolutemin_tilt;
+
+
+   
+  return output;
+}
+
+
+float pid_1(float error){
   if (dt <= 0) return 0;
 
   float integral_max = 5;
@@ -163,27 +253,6 @@ float pid(float error){
   return output;
 }
 
-// float pid_1(float error1){
-  
-//   float A = Kp +(Ki * dt) + (Kd/dt);
-//   float B = (-Kp - 2*(Kd/dt));
-//   float C = (Kd/dt);
-
-//   controller_output = controller_prev1 + (error1 * A) + (error_prev1 * B) + (error_prev2 * C);
-
-//   error_prev2 = error_prev1;
-//   error_prev1 = error1;
-//   controller_prev1 = controller_output;
-
-//  // if(controller_output > absolutemax)
-//  //   return absolutemax;
-//  // else if(controller_output < -absolutemax)
-//  //return -absolutemax;
-
-//   return controller_output;
-// }
-
-
 void loop()
 {
   //Static variables are initialised once and then the value is remembered betweeen subsequent calls to this function
@@ -203,6 +272,17 @@ void loop()
 
 
 
+
+    //speed controller
+    actual_motor_speed_prev = actual_motor_speed;
+    actual_motor_speed = (step1.getSpeed() + step2.getSpeed())/2;
+    error_speed = actual_motor_speed - motorspeed_setpoint;
+    angle_found = pid_2(error_speed);
+
+
+
+
+
     
     // float accel_angle = atan2(a.acceleration.y, a.acceleration.z) * 180.0 / PI;
     float accel_angle = a.acceleration.z / 9.67;
@@ -214,7 +294,7 @@ void loop()
 
 
     error = (setpoint - (tilt_x));
-    accel = pid(error);
+    accel = pid_1(error);
 
 
     if(motorspeed > absolutemax_speed){
@@ -252,6 +332,10 @@ void loop()
   //Line format: X-axis tilt, Motor speed, A0 Voltage
   if (millis() > printTimer) {
     printTimer += PRINT_INTERVAL;
+    char buffer[32];
+    snprintf(buffer, sizeof(buffer), "%.3f,%.3f,%.3f,%.3f,%.4f",step1.getSpeedRad(),tilt_x,motorspeed,setpoint,accel);
+    send(clientSocket, buffer, strlen(buffer), 0);
+
     Serial.print(step1.getSpeedRad());
     Serial.print(',');
     Serial.print(tilt_x);
