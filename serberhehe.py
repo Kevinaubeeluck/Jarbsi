@@ -14,7 +14,7 @@ esp_lock = Lock()
 
 
 # TCP Server details
-server_ip = '192.168.70.169'
+server_ip = '192.168.70.158'
 server_port = 12000
 
 
@@ -178,4 +178,4 @@ tcp_thread.start()
 
 
 if __name__ == '__main__':
-    app.run(host='192.168.70.169', port=8000, debug=False)
+    app.run(host='192.168.70.158', port=8000, debug=False)

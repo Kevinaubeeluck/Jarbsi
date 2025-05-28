@@ -4,11 +4,12 @@
 #include <Adafruit_MPU6050.h>
 #include <Adafruit_Sensor.h>
 #include <step.h>
-float Kp=325;
+float Kp=5000;
 float Ki=0;
-float Kd=0.8;
-float accel = 15;
-float absolutemax = 9;
+float Kd=0.01;
+float accel = 0;
+float absolutemax_accel = 30;
+float absolutemax_speed = 50;
 float setpoint = 0;
 float tilt_x =0, tilt_x_prev=0;
 float k=0;
@@ -16,7 +17,7 @@ float k=0;
 
 
 
-
+float value_speed = 9;
 float motorspeed =0;
 float tiltx_prev = 0.0;
 float c = 0.85;
@@ -152,10 +153,10 @@ float pid(float error){
   previous = error;
   output = (Kp * proportional) + (Ki * integral) + (Kd * derivative);
 
-  if(output > absolutemax)
-    return absolutemax;
-  else if(output < -absolutemax)
-    return -absolutemax;
+  if(output > absolutemax_accel)
+    return absolutemax_accel;
+  else if(output < -absolutemax_accel)
+    return -absolutemax_accel;
 
 
    
@@ -213,9 +214,30 @@ void loop()
 
 
     error = (setpoint - (tilt_x));
-    motorspeed = pid(error);
+    accel = pid(error);
+
+
+    if(motorspeed > absolutemax_speed){
+      motorspeed = absolutemax_speed;
+    }
+    else if(motorspeed < -absolutemax_speed){
+      motorspeed = absolutemax_speed;
+    }
+
+
+    if(accel<0){
+      motorspeed = -value_speed;
+    }
+    else{
+      motorspeed = value_speed;
+    }
+
+
     step1.setTargetSpeedRad(motorspeed);
     step2.setTargetSpeedRad(-motorspeed);
+
+    step1.setAccelerationRad(accel);
+    step2.setAccelerationRad(accel);
 
     k=k+1;
     if(k==701){
@@ -237,6 +259,8 @@ void loop()
     Serial.print(motorspeed);
     Serial.print(',');
     Serial.print(setpoint);
+    Serial.print(',');
+    Serial.print(accel);
     Serial.println();
   }
 }
