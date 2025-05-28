@@ -11,6 +11,7 @@ msg_lock = Lock()
 
 esp_socket = None  # Global variable to hold active ESP connection
 esp_lock = Lock()
+last_sent_values = {}  # Tracks last sent values for delta update
 
 
 # TCP Server details
@@ -146,8 +147,16 @@ html_page = """
         <input type="text" id="{{ param }}Input" placeholder="Enter {{ param | e}}" required>
         <button type="submit">Send</button>
     </form>
+    <p>Current: <span id="{{ param }}Value">?</span></p>
     </div>  
     {% endfor %}
+</div>
+
+
+<div style="text-align: center; width: 100%; margin-top: 20px;">
+    <button onclick="fetchCurrentValues(true)" style="padding: 10px 20px; font-size: 1em; background-color: green; color: white; border: none; border-radius: 8px; cursor: pointer;">
+        Refresh All Parameters
+    </button>
 </div>
 
 <div style="width: 100%; display: flex; justify-content: center;">
@@ -159,10 +168,35 @@ html_page = """
 
 
 
+<script>
+    async function fetchCurrentValues(force = false) {
+        try {
+            const response = await fetch(`/current_values${force ? '?force=true' : ''}`);
+            const data = await response.json();
+            for (const [key, value] of Object.entries(data)) {
+                const el = document.getElementById(`${key}Value`);
+                if (el) {
+                    el.textContent = value.toFixed(3);
+                }
+            }
+        } catch (e) {
+            console.error("Failed to fetch current values:", e);
+        }
+    }
+
+    setInterval(() => fetchCurrentValues(false), 1000); // delta update every second
+
+    window.onload = () => {
+        fetchMessages();
+        fetchCurrentValues(true); // full update on first load
+    };
+</script>
+
+
 
 
 <script>
-    async function fetchMessages() {
+    async function fetchMessages(force = false) {
         try {
             const response = await fetch('/messages');
             const data = await response.json();
@@ -263,6 +297,42 @@ def send():
                 sent_status = f"Failed to send: {e}"
 
     return jsonify({"status": sent_status})
+
+
+@app.route('/current_values')
+def current_values():
+    global last_sent_values
+    with msg_lock:
+        last_message = messages[-1] if messages else ""
+    
+    # Parse the latest line if possible
+    # Expecting format: Kp,Ki,Kd,kmp,kmi,kmd,absolutemax_tilt,absolutemin_tilt,motorspeed_setpoint
+    try:
+        values = list(map(float, last_message.strip().split(',')))
+        if len(values) == 9:
+            keys = ['Kp', 'Ki', 'Kd', 'Kmp', 'Kmi', 'Kmd', 'absolutemax_tilt', 'absolutemin_tilt', 'motorspeed_setpoint']
+            current = dict(zip(keys, values))
+            delta = {}
+            
+            force = request.args.get('force', 'false').lower() == 'true'
+            
+            if force:
+                # Update last_sent and return everything
+                last_sent_values = current.copy()
+                return jsonify(current)
+            
+            for k, v in current.items():
+                if k not in last_sent_values or abs(last_sent_values[k] - v) > 1e-6:
+                    delta[k] = v
+
+            # Update last sent
+            last_sent_values.update(delta)
+            return jsonify(delta)   
+    except:
+        pass
+
+    return jsonify({})
+
 
 @app.route('/messages')
 def get_messages():
