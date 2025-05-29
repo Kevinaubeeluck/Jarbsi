@@ -33,6 +33,11 @@ float error_speed =0;
 float absolutemax_tilt = 0.18;
 float absolutemin_tilt= 0.11;
 
+//Voltage values:
+float Vm, I_m,V_5, I_5,V_B;
+float CouloumbCount = 0;
+float BatterySOC; //must load from server. Server should have a set battery SOC as well incase new one is placed back in.
+const float ratedColoumb = 2000*3600;
 
 
 float value_speed = 35;
@@ -69,6 +74,7 @@ const int ADC_MOSI_PIN      = 23;
 const int TOGGLE_PIN        = 32;
 
 const int PRINT_INTERVAL    = 500;
+const int POWER_INTERVAL = 100;
 const int LOOP_INTERVAL     = 10;
 const int STEPPER_INTERVAL_US = 20;
 
@@ -199,9 +205,9 @@ void setup()
   digitalWrite(ADC_CS_PIN, HIGH);
   SPI.begin(ADC_SCK_PIN, ADC_MISO_PIN, ADC_MOSI_PIN, ADC_CS_PIN);
 
-  Wificonnect();
+  //Wificonnect();
 
-  Socketconnect();
+  //Socketconnect();
 
 }
 
@@ -261,6 +267,8 @@ void loop()
   //Static variables are initialised once and then the value is remembered betweeen subsequent calls to this function
   static unsigned long printTimer = 0;  //time of the next print
   static unsigned long loopTimer = 0;   //time of the next control update
+  static unsigned long powerTimer = 0;   //time of the next power update
+  
   static float tiltx = 0.0;             //current tilt angle
   
   //Run the control loop every LOOP_INTERVAL ms
@@ -331,23 +339,58 @@ void loop()
 
   }
   
+  if (millis() > powerTimer) {
+    printTimer += POWER_INTERVAL;
+    
+    //Motor Voltage
+    Vm = ((readADC(0) * VREF)/4095.0) *6.0; //multiply voltage divider to obtain it back. --510k -Vm- 100k --- GND connection
+    //Motor shunt Differential Voltage
+    I_m = (((readADC(1) * VREF)/4095.0) * 6/100)/0.1; //revert back to differential voltage and divide resistance to obtain current
+    //5V
+    V_5 = ((readADC(2) * VREF)/4095.0) *2; // Voltage divider circuit to lower voltage in half, use 100k -- 100k
+    //5V shunt differential voltage
+    I_5 = ((readADC(3) * VREF)/4095.0) *100 / 0.01; //this time only gain 100
+    //Battery Voltage
+    V_B = ((readADC(4) * VREF)/4095.0) *6;
+    
+    CouloumbCount = CouloumbCount + (I_m + I_5)*POWER_INTERVAL; //rectangle approximation otherwise previous values must be saved
+
+  }
+
+
+
   //Print updates every PRINT_INTERVAL ms
   //Line format: X-axis tilt, Motor speed, A0 Voltage
   if (millis() > printTimer) {
     printTimer += PRINT_INTERVAL;
-    char buffer[32];
-    snprintf(buffer, sizeof(buffer), "%.3f,%.3f,%.3f,%.3f,%.4f",step1.getSpeedRad(),tilt_x,motorspeed,setpoint,accel);
-    send(clientSocket, buffer, strlen(buffer), 0);
 
-    Serial.print(step1.getSpeedRad());
-    Serial.print(',');
-    Serial.print(tilt_x);
-    Serial.print(',');
-    Serial.print(motorspeed);
-    Serial.print(',');
-    Serial.print(setpoint);
-    Serial.print(',');
-    Serial.print(accel);
-    Serial.println();
+    //char buffer[32];
+    //snprintf(buffer, sizeof(buffer), "%.3f,%.3f,%.3f,%.3f,%.4f",step1.getSpeedRad(),tilt_x,motorspeed,setpoint,accel);
+    //send(clientSocket, buffer, strlen(buffer), 0);
+
+    // Serial.print(step1.getSpeedRad());
+    // Serial.print(',');
+    // Serial.print(tilt_x);
+    // Serial.print(',');
+    // Serial.print(motorspeed);
+    // Serial.print(',');
+    // Serial.print(setpoint);
+    // Serial.print(',');
+    // Serial.print(accel);
+    
+    Serial.print("X tilt: ");
+    Serial.println(tilt_x);
+
+    Serial.print("Motor Voltage: ");
+    Serial.println(Vm);
+    Serial.print("Motor Current: ");
+    Serial.println(I_m);
+    Serial.print("5V voltage: ");
+    Serial.println(V_5);
+    Serial.print("5V current: ");
+    Serial.println(I_5);
+    Serial.print("Battery Voltage");
+    Serial.println(V_B);
+    BatterySOC = BatterySOC-(CouloumbCount/ratedColoumb)*100;
   }
 }
