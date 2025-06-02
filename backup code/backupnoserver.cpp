@@ -89,7 +89,7 @@ const char* ssid = "meow";
 const char* password = "hello12345@";
 
 // Global client socket for loop 
-int clientSocket = -1;
+//int clientSocket = -1;
 
 //Global objects
 ESP32Timer ITimer(3);
@@ -98,104 +98,104 @@ Adafruit_MPU6050 mpu;         //Default pins for I2C are SCL: IO22, SDA: IO21
 step step1(STEPPER_INTERVAL_US,STEPPER1_STEP_PIN,STEPPER1_DIR_PIN );
 step step2(STEPPER_INTERVAL_US,STEPPER2_STEP_PIN,STEPPER2_DIR_PIN );
 
-TaskHandle_t recvTaskHandle = NULL;
+//TaskHandle_t recvTaskHandle = NULL;
 
 
 
 //Interrupt Service Routine for motor update
 //Note: ESP32 doesn't support floating point calculations in an ISR
 
-void recvloopTask(void* pvParameters){
-  char buffer[1024] = {0};
-  //regex floatTupleRegex(R"(\(\s*-?\d*\.?\d+\s*,\s*-?\d*\.?\d+\s*,\s*-?\d*\.?\d+\s*\))");
-  while (true) {
-      int bytesReceived = recv(clientSocket, buffer, sizeof(buffer), 0);
-      //if (regex_match(buffer, floatTupleRegex)) { 
-      float a;
-      buffer[bytesReceived] = '\0'; // null-terminate the string
+// void recvloopTask(void* pvParameters){
+//   char buffer[1024] = {0};
+//   //regex floatTupleRegex(R"(\(\s*-?\d*\.?\d+\s*,\s*-?\d*\.?\d+\s*,\s*-?\d*\.?\d+\s*\))");
+//   while (true) {
+//       int bytesReceived = recv(clientSocket, buffer, sizeof(buffer), 0);
+//       //if (regex_match(buffer, floatTupleRegex)) { 
+//       float a;
+//       buffer[bytesReceived] = '\0'; // null-terminate the string
 
-    // if (sscanf(buffer, "%f,%f,%f,%f,%f,%f,%f,%f,%f", &a, &b, &c, &d, &e, &f, &g, &h, &i) == 9) {
-    //     Kp = a;
-    //     Ki = b;
-    //     Kd = c;
-    //     kmp = d;
-    //     kmi = e;
-    //     kmd = f;
-    //     absolutemax_tilt = g;
-    //     absolutemin_tilt = h;
-    //     motorspeed_setpoint = i;
-    //           //cout << "Parsed values: Kp=" << Kp << ", Ki=" << Ki << ", Kd=" << Kd << endl;
-    // }
+//     // if (sscanf(buffer, "%f,%f,%f,%f,%f,%f,%f,%f,%f", &a, &b, &c, &d, &e, &f, &g, &h, &i) == 9) {
+//     //     Kp = a;
+//     //     Ki = b;
+//     //     Kd = c;
+//     //     kmp = d;
+//     //     kmi = e;
+//     //     kmd = f;
+//     //     absolutemax_tilt = g;
+//     //     absolutemin_tilt = h;
+//     //     motorspeed_setpoint = i;
+//     //           //cout << "Parsed values: Kp=" << Kp << ", Ki=" << Ki << ", Kd=" << Kd << endl;
+//     // }
 
-    if (sscanf(buffer, "SET_KP(%f)", &a) == 1) {
-        Kp = a;
-    }
-    else if (sscanf(buffer, "SET_KI(%f)", &a) == 1) {
-        Ki = a;
-    }
-    else if (sscanf(buffer, "SET_KD(%f)", &a) == 1) {
-        Kd = a;
-    }
-    else if (sscanf(buffer, "SET_KMP(%f)", &a) == 1) {
-        kmp = a;
-    }
-    else if (sscanf(buffer, "SET_KMI(%f)", &a) == 1) {
-        kmi = a;
-    }
-    else if (sscanf(buffer, "SET_KMD(%f)", &a) == 1) {
-        kmd = a;
-    }
-    else if (sscanf(buffer, "MAX_TILT(%f)", &a) == 1) {
-        absolutemax_tilt = a;
-    }
-    else if (sscanf(buffer, "MIN_TILT(%f)", &a) == 1) {
-        absolutemin_tilt = a;
-    }
-    else if (sscanf(buffer, "TARGET_SPEED(%f)", &a) == 1) {
-        motorspeed_setpoint = a;
-    }
+//     if (sscanf(buffer, "SET_KP(%f)", &a) == 1) {
+//         Kp = a;
+//     }
+//     else if (sscanf(buffer, "SET_KI(%f)", &a) == 1) {
+//         Ki = a;
+//     }
+//     else if (sscanf(buffer, "SET_KD(%f)", &a) == 1) {
+//         Kd = a;
+//     }
+//     else if (sscanf(buffer, "SET_KMP(%f)", &a) == 1) {
+//         kmp = a;
+//     }
+//     else if (sscanf(buffer, "SET_KMI(%f)", &a) == 1) {
+//         kmi = a;
+//     }
+//     else if (sscanf(buffer, "SET_KMD(%f)", &a) == 1) {
+//         kmd = a;
+//     }
+//     else if (sscanf(buffer, "MAX_TILT(%f)", &a) == 1) {
+//         absolutemax_tilt = a;
+//     }
+//     else if (sscanf(buffer, "MIN_TILT(%f)", &a) == 1) {
+//         absolutemin_tilt = a;
+//     }
+//     else if (sscanf(buffer, "TARGET_SPEED(%f)", &a) == 1) {
+//         motorspeed_setpoint = a;
+//     }
 
-      //}
-      memset(buffer, 0, sizeof(buffer));
-      vTaskDelay(10 / portTICK_PERIOD_MS);
-  }
+//       //}
+//       memset(buffer, 0, sizeof(buffer));
+//       vTaskDelay(10 / portTICK_PERIOD_MS);
+//   }
       
-}
+// }
 
 
-void Wificonnect(){
-  WiFi.begin(ssid, password);
-  Serial.print("Connecting to WiFi");
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println("\nWiFi connected. IP: ");
-  Serial.println(WiFi.localIP());
-}
+// void Wificonnect(){
+//   WiFi.begin(ssid, password);
+//   Serial.print("Connecting to WiFi");
+//   while (WiFi.status() != WL_CONNECTED) {
+//     delay(500);
+//     Serial.print(".");
+//   }
+//   Serial.println("\nWiFi connected. IP: ");
+//   Serial.println(WiFi.localIP());
+// }
 
-void Socketconnect(){
-  // Connect socket
-  clientSocket = socket(AF_INET, SOCK_STREAM, 0);
+// void Socketconnect(){
+//   // Connect socket
+//   clientSocket = socket(AF_INET, SOCK_STREAM, 0);
 
-  // specifying address
-  sockaddr_in serverAddress;
-  serverAddress.sin_family = AF_INET;
-  serverAddress.sin_port = htons(12000);
-  inet_pton(AF_INET, "192.168.219.158", &serverAddress.sin_addr);
+//   // specifying address
+//   sockaddr_in serverAddress;
+//   serverAddress.sin_family = AF_INET;
+//   serverAddress.sin_port = htons(12000);
+//   inet_pton(AF_INET, "192.168.219.158", &serverAddress.sin_addr);
 
   
-  // sending connection request
-  int connection = connect(clientSocket, (struct sockaddr*)&serverAddress,
-          sizeof(serverAddress));
+//   // sending connection request
+//   int connection = connect(clientSocket, (struct sockaddr*)&serverAddress,
+//           sizeof(serverAddress));
   
-  if(connection == 0){
-    Serial.println("HELL YEAH IT'S CONNECTED TO THE SERVER");
-  }
-  else{
-    Serial.println(":( check wifi");
-  }
-}
+//   if(connection == 0){
+//     Serial.println("HELL YEAH IT'S CONNECTED TO THE SERVER");
+//   }
+//   else{
+//     Serial.println(":( check wifi");
+//   }
+// }
 
 bool TimerHandler(void * timerNo)
 {
@@ -268,21 +268,21 @@ void setup()
   digitalWrite(ADC_CS_PIN, HIGH);
   SPI.begin(ADC_SCK_PIN, ADC_MISO_PIN, ADC_MOSI_PIN, ADC_CS_PIN);
 
-  Wificonnect();
+  //Wificonnect();
 
-  Socketconnect();
+  //Socketconnect();
 
   // thread reciever(recvloop,clientSocket);
 
-xTaskCreatePinnedToCore(
-  recvloopTask,        // Function
-  "RecvLoopTask",      // Name
-  4096,                // Stack size
-  NULL,                // Params
-  1,                   // Priority
-  &recvTaskHandle,     // Task handle
-  1                    // Core 1 (leave loop() on Core 0)
-);  
+// xTaskCreatePinnedToCore(
+//   recvloopTask,        // Function
+//   "RecvLoopTask",      // Name
+//   4096,                // Stack size
+//   NULL,                // Params
+//   1,                   // Priority
+//   &recvTaskHandle,     // Task handle
+//   1                    // Core 1 (leave loop() on Core 0)
+// );  
     
 }
 
@@ -377,6 +377,7 @@ void loop()
 
 
 
+
     motorspeed += accel * dt;
 
 // Clamp it if needed
@@ -427,12 +428,12 @@ void loop()
     // Serial.println(motorspeed_setpoint);
     Serial.print(", motorspeed=");
     Serial.print(actual_motor_speed);
-    char buffer[100];
-    snprintf(buffer, sizeof(buffer), "%.3f,%.3f,%.3f,%.3f,%.4f",step1.getSpeedRad(),tilt_x,motorspeed,setpoint,accel);
-    send(clientSocket, buffer, strlen(buffer), 0);
-    memset(buffer, 0, 100);
-    snprintf(buffer, sizeof(buffer), "%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f",Kp,Ki,Kd,kmp,kmi,kmd,absolutemax_tilt,absolutemin_tilt,motorspeed_setpoint);
-    send(clientSocket, buffer, strlen(buffer), 0);
+    // char buffer[100];
+    // snprintf(buffer, sizeof(buffer), "%.3f,%.3f,%.3f,%.3f,%.4f",step1.getSpeedRad(),tilt_x,motorspeed,setpoint,accel);
+    // send(clientSocket, buffer, strlen(buffer), 0);
+    // memset(buffer, 0, 100);
+    // snprintf(buffer, sizeof(buffer), "%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f",Kp,Ki,Kd,kmp,kmi,kmd,absolutemax_tilt,absolutemin_tilt,motorspeed_setpoint);
+    // send(clientSocket, buffer, strlen(buffer), 0);
     Serial.println();
 
 

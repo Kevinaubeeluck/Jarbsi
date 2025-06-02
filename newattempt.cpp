@@ -371,10 +371,8 @@ void loop(){
     // Serial.print(mintilt);
     // Serial.print(", speed_setpoint=");
     // Serial.println(setvelocity);
-    Serial.print(", motorspeed=");
-    Serial.print(actual_motor_speed);
     char buffer[100];
-    snprintf(buffer, sizeof(buffer), "%.3f,%.3f,%.3f,%.3f,%.4f",step1.getSpeedRad(),tilt_x,motorspeed,setpoint,accel);
+    snprintf(buffer, sizeof(buffer), "%.3f,%.3f,%.3f,%.3f,%.4f",step1.getSpeedRad(),tilt_x,motorspeed,accel);
     send(clientSocket, buffer, strlen(buffer), 0);
     memset(buffer, 0, 100);
     snprintf(buffer, sizeof(buffer), "%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f",Kp,Ki,Kd,Kpv,Kiv,Kdv,maxtilt,mintilt,setvelocity);
