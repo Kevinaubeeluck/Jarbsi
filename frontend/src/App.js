@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import ParameterBox from './components/ParameterBox';
 import MessageLog from './components/MessageLog';
+import Leaderboard from './components/leaderboard';
+import BatteryStatus from './components/Batterystatus';
 
 const PARAMS = [
   'Kp', 'Ki', 'Kd',
@@ -75,6 +77,9 @@ function App() {
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '20px', padding: '20px' }}>
+      <div style={{ gridColumn: '1 / -1' }}>
+        <BatteryStatus />
+      </div>
       {PARAMS.map(p => (
         <ParameterBox
           key={p}
@@ -85,6 +90,9 @@ function App() {
       ))}
       <div style={{ gridColumn: '1 / -1' }}>
         <MessageLog messages={messages} />
+      </div>
+      <div style={{ gridColumn: '1 / -1' }}>
+        <Leaderboard />
       </div>
      </div>
   );

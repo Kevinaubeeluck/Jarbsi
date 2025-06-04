@@ -53,6 +53,22 @@ def send_command():
                 status = f"Failed to send: {e}"
     return jsonify({"status": status})
 
+
+leaderboard_data = [
+    {"name": "StarPlatinum", "score": 1.00},
+    {"name": "TheWorld", "score": 1.01},
+    {"name": "GER", "score": 2.00}
+]
+
+@app.route("/api/leaderboard", methods=["GET"])
+def get_leaderboard():
+    return jsonify(leaderboard_data)
+
+
+@app.route("/api/batteryinfo", methods=["GET"])
+def get_batteryinfo():
+    return jsonify({"level": 50})
+
 @app.route("/api/current_values")
 def current_values():
     global last_sent_values
