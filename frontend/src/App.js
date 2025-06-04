@@ -4,6 +4,9 @@ import MessageLog from './components/MessageLog';
 import Leaderboard from './components/leaderboard';
 import BatteryStatus from './components/Batterystatus';
 
+
+const API_BASE = "http://108.20.120.215:8000"; 
+
 const PARAMS = [
   'Kp', 'Ki', 'Kd',
   'Kmp', 'Kmi', 'Kmd',
@@ -16,14 +19,14 @@ function App() {
   const [messages, setMessages] = useState([]);
 
   const fetchCurrent = useCallback((force = false) => {
-    fetch(`http://localhost:8000/api/current_values${force ? '?force=true' : ''}`)
+    fetch(`${API_BASE}/api/current_values${force ? '?force=true' : ''}`)
       .then(r => r.json())
       .then(data => setValues(v => ({ ...v, ...data })))
       .catch(console.error);
   }, []);
 
   const fetchMessages = useCallback(() => {
-    fetch('http://localhost:8000/api/messages')
+    fetch('${API_BASE}/api/messages')
       .then(r => r.json())
       .then(setMessages)
       .catch(console.error);
@@ -68,7 +71,7 @@ function App() {
       absolutemin_tilt: `MIN_TILT(${value})`,
       motorspeed_setpoint: `TARGET_SPEED(${value})`
     };
-    fetch('http://localhost:8000/api/send', {
+    fetch('${API_BASE}/api/send', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ command: commands[param] })
