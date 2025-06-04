@@ -26,7 +26,7 @@ function App() {
   }, []);
 
   const fetchMessages = useCallback(() => {
-    fetch('${API_BASE}/api/messages')
+    fetch(`${API_BASE}/api/messages`)
       .then(r => r.json())
       .then(setMessages)
       .catch(console.error);
@@ -71,7 +71,7 @@ function App() {
       absolutemin_tilt: `MIN_TILT(${value})`,
       motorspeed_setpoint: `TARGET_SPEED(${value})`
     };
-    fetch('${API_BASE}/api/send', {
+    fetch(`${API_BASE}/api/send`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ command: commands[param] })
