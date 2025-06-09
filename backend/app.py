@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from create_db import get_battery, set_battery, Session
 import socket
 import threading
 from collections import deque
@@ -60,14 +61,23 @@ leaderboard_data = [
     {"name": "GER", "score": 2.00}
 ]
 
-@app.route("/api/leaderboard", methods=["GET"])
-def get_leaderboard():
-    return jsonify(leaderboard_data)
+@app.route("/api/batteryinfo", methods=["GET", "POST"])
+def battery_info():
+    """
+    GET  → {"level": 73.4}
+    POST → body {"level": 85}  (mainly for ESP, but handy during testing)
+    """
+    if request.method == "POST":
+        data = request.get_json(force=True)
+        level = float(data.get("level"))
+        set_battery(level)
+        return jsonify({"status": "stored", "level": level})
+
+    level = get_battery()
+    return jsonify({"level": level if level is not None else "unknown"})
 
 
-@app.route("/api/batteryinfo", methods=["GET"])
-def get_batteryinfo():
-    return jsonify({"level": 50})
+
 
 @app.route("/api/current_values")
 def current_values():
@@ -110,14 +120,30 @@ def tcp_server():
         with esp_lock:
             esp_socket = conn
         try:
+            bat = get_battery()
+            if bat is not None:
+                msg = f"BAT:{bat:.2f}\n"
+                conn.send(msg.encode())
+                app.logger.debug("→ sent stored battery %s to ESP", msg.strip())
             while True:
                 data = conn.recv(1024)
                 if not data:
                     break
+                line = data.decode().strip()
                 with msg_lock:
-                    messages.append(data.decode())
+                    messages.append(line)
+
+                # Did we just receive a battery update?
+                if line.startswith("BAT:"):
+                    try:
+                        new_level = float(line.split(":", 1)[1])
+                        set_battery(new_level)
+                    except ValueError:
+                        pass
         finally:
             conn.close()
+            with esp_lock:
+                esp_socket = None
 
 def start_tcp_thread():
     t = threading.Thread(target=tcp_server, daemon=True)
@@ -126,4 +152,3 @@ def start_tcp_thread():
 if __name__ == "__main__":
     start_tcp_thread()
     app.run(host="0.0.0.0", port=8000, debug=False)
-

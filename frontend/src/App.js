@@ -5,7 +5,7 @@ import Leaderboard from './components/leaderboard';
 import BatteryStatus from './components/Batterystatus';
 
 
-const API_BASE = "http://107.20.120.215:8000"; 
+const API_BASE = "http://192.168.140.235:8000"; 
 
 const PARAMS = [
   'Kp', 'Ki', 'Kd',
