@@ -36,7 +36,17 @@ PARAM_KEYS = [
     'motorspeed_setpoint'
 ]
 
-# ---------- REST API ----------
+def send_to_esp(payload: str):
+    """Thread-safe write to the current ESP socket (if any)."""
+    with esp_lock:
+        sock = esp_socket          
+    if sock:                       
+        try:
+            sock.send(payload.encode())
+        except OSError:
+            pass
+
+
 @app.route("/api/send", methods=["POST"])
 def send_command():
     data = request.get_json(force=True)
@@ -63,14 +73,10 @@ leaderboard_data = [
 
 @app.route("/api/batteryinfo", methods=["GET", "POST"])
 def battery_info():
-    """
-    GET  → {"level": 73.4}
-    POST → body {"level": 85}  (mainly for ESP, but handy during testing)
-    """
     if request.method == "POST":
-        data = request.get_json(force=True)
-        level = float(data.get("level"))
-        set_battery(level)
+        level = float(request.get_json(force=True)["level"])
+        set_battery(level)                         
+        send_to_esp(f"BAT:{level:.2f}\n")          
         return jsonify({"status": "stored", "level": level})
 
     level = get_battery()
@@ -107,7 +113,6 @@ def get_messages():
     with msg_lock:
         return jsonify(list(messages))
 
-# ---------- TCP server ----------
 def tcp_server():
     global esp_socket
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -133,7 +138,6 @@ def tcp_server():
                 with msg_lock:
                     messages.append(line)
 
-                # Did we just receive a battery update?
                 if line.startswith("BAT:"):
                     try:
                         new_level = float(line.split(":", 1)[1])

@@ -57,7 +57,6 @@ void Socketconnect() {
   }
 }
 
-// Receiver loop task
 void recvloopTask(void* pvParameters) {
   char buffer[256] = {0};
   float a;
@@ -110,6 +109,10 @@ void loop() {
     timer += 1000;
     Serial.print("Current Kp: ");
     Serial.println(Kp);
+
+    if (clientSocket < 0) {                // reconnect if needed
+      Socketconnect();
+    }
 
     // Optionally send Kp value to server every second
     if (clientSocket > 0) {
