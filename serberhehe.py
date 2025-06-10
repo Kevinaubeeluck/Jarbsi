@@ -14,8 +14,8 @@ esp_lock = Lock()
 
 
 # TCP Server details
-server_ip = '192.168.70.158'
-server_port = 12000
+server_ip = '172.26.68.159'
+server_port = 2177
 
 
 app = Flask(__name__)
@@ -178,4 +178,4 @@ tcp_thread.start()
 
 
 if __name__ == '__main__':
-    app.run(host='192.168.70.158', port=8000, debug=False)
+    app.run(host='192.168.202.158', port=8000, debug=False)

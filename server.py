@@ -15,8 +15,8 @@ last_sent_values = {}  # Tracks last sent values for delta update
 
 
 # TCP Server details
-server_ip = '192.168.219.158'
-server_port = 12000
+server_ip = '192.168.202.158'
+server_port = 139
 
 
 app = Flask(__name__)

@@ -13,13 +13,14 @@
 #include <stdlib.h>
 #include <WiFi.h> 
 #include <regex>
+#include <WebServer.h>
 
 
 using namespace std;
 float outeraddon =0;
-float Kp=3000;
+float Kp=2000;
 float Ki=0;
-float Kd=0.01;
+float Kd=0.05;
 float accel = 0;
 float absolutemax_accel = 75;
 float absolutemax_speed = 35;
@@ -27,7 +28,6 @@ float setpoint = 0;
 float tilt_x =0, tilt_x_prev=0;
 float k=0;
 #define LED 2
-float want_speed=0;
 
 float actual_motor_speed =0;
 float actual_motor_speed_prev=0;
@@ -48,7 +48,6 @@ float preve =0;
 float value_speed = 35;
 float motorspeed =0;
 float tiltx_prev = 0.0;
-float c = 0.85;
 float gyro_y = 0;
 float gyro_x_prev = 0;
 float dt = 0, last_time=0, dg=0, last_time2=0;
@@ -86,10 +85,10 @@ const int STEPPER_INTERVAL_US = 20;
 
 const float kx = 100.0;
 const float VREF = 4.096;
-float turn =0;
 
-const char* ssid = "meow";
-const char* password = "hello12345@";
+
+const char* ssid = "sachinator13";
+const char* password = "hahahaha";
 
 // Global client socket for loop 
 //int clientSocket = -1;
@@ -98,6 +97,11 @@ const char* password = "hello12345@";
 ESP32Timer ITimer(3);
 Adafruit_MPU6050 mpu;         //Default pins for I2C are SCL: IO22, SDA: IO21
 
+WebServer server(80);
+float want_speed = 0;
+float turn = 0;
+float c = 1, d = 2, e = 3;
+unsigned long lastUpdate = 0;
 step step1(STEPPER_INTERVAL_US,STEPPER1_STEP_PIN,STEPPER1_DIR_PIN );
 step step2(STEPPER_INTERVAL_US,STEPPER2_STEP_PIN,STEPPER2_DIR_PIN );
 
@@ -233,6 +237,77 @@ uint16_t readADC(uint8_t channel) {
   return result;
 }
 
+
+void handleRoot() {
+  String html = R"rawliteral(
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>ESP32 Keyboard + Live Display</title>
+      <style>
+        body { font-family: Arial; text-align: center; margin-top: 50px; }
+        h1 { font-size: 2em; }
+        .value { font-size: 1.5em; color: blue; }
+        textarea {
+          width: 60%;
+          height: 100px;
+          font-size: 1em;
+          margin-top: 20px;
+          border-radius: 8px;
+          padding: 10px;
+        }
+      </style>
+    </head>
+    <body>
+      <h1>ESP32 Control Panel</h1>
+      <p>want_speed = <span id="speed_val" class="value">0</span></p>
+      <p>turn = <span id="turn_val" class="value">0</span></p>
+      <textarea id="liveBox" readonly></textarea>
+
+      <script>
+        document.addEventListener('keydown', function(event) {
+          let key = event.key.toLowerCase();
+          if (key === 'w') fetch('/set?want_speed=10');
+          else if (key === 's') fetch('/set?want_speed=-10');
+          else if (key === 'x') fetch('/set?want_speed=0&turn=0');
+          else if (key === 'a') fetch('/set?turn=10');
+          else if (key === 'd') fetch('/set?turn=-10');
+        });
+
+        async function fetchValues() {
+          const res = await fetch('/values');
+          const data = await res.json();
+          document.getElementById('speed_val').innerText = data.want_speed;
+          document.getElementById('turn_val').innerText = data.turn;
+          document.getElementById('liveBox').value = `c: ${data.c}\nd: ${data.d}\ne: ${data.e}`;
+        }
+
+        setInterval(fetchValues, 500);
+      </script>
+    </body>
+    </html>
+  )rawliteral";
+
+  server.send(200, "text/html", html);
+}
+
+void handleSet() {
+  if (server.hasArg("want_speed")) want_speed = server.arg("want_speed").toInt();
+  if (server.hasArg("turn")) turn = server.arg("turn").toInt();
+  server.send(200, "text/plain", "Values updated");
+}
+
+void handleValues() {
+  String json = "{\"want_speed\":" + String(want_speed) +
+                ",\"turn\":" + String(turn) +
+                ",\"c\":" + String(c) +
+                ",\"d\":" + String(d) +
+                ",\"e\":" + String(e) + "}";
+  server.send(200, "application/json", json);
+}
+
+
+
 void setup()
 {
   pinMode(LED,OUTPUT);
@@ -247,6 +322,23 @@ void setup()
     }
   }
   Serial.println("MPU6050 Found!");
+
+  WiFi.begin(ssid, password);
+  Serial.print("Connecting");
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("\nConnected to WiFi.");
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+
+  server.on("/", handleRoot);
+  server.on("/set", handleSet);
+  server.on("/values", handleValues);
+  server.begin();
+  Serial.println("HTTP server started.");
 
   mpu.setAccelerometerRange(MPU6050_RANGE_2_G);
   mpu.setGyroRange(MPU6050_RANGE_250_DEG);
@@ -293,16 +385,16 @@ void setup()
 }
 
 
-float pid(float err, float P, float I, float D, float dt3){
-  if(dt3 <= 0) return 0;
+// float pid(float err, float P, float I, float D, float dt3){
+//   if(dt3 <= 0) return 0;
 
-  float prop = err;
-  float deriv = (err - preve) / dt;
-  preve = err;
-  float output = (P * prop) + (D * deriv);
-  return output;
+//   float prop = err;
+//   float deriv = (err - preve) / dt;
+//   preve = err;
+//   float output = (P * prop) + (D * deriv);
+//   return output;
 
-}
+// }
 
 
 
@@ -348,6 +440,13 @@ float pid_2(float error2, float dt2){
 
 void loop()
 {
+  server.handleClient();
+
+  // Dummy update of c, d, e every 1 second
+  if (millis() - lastUpdate > 1000) {
+    lastUpdate = millis();
+    c = step1.getSpeedRad(); d=outeraddon; e=tilt_x;
+  }
   //Static variables are initialised once and then the value is remembered betweeen subsequent calls to this function
   static unsigned long printTimer = 0;  //time of the next print
   static unsigned long loopTimer = 0;
@@ -355,7 +454,18 @@ void loop()
   float dt2 = 0;
   float tiltx = 0.0;             //current tilt angle
   
+  
+// outer loops
+  if (millis() > loopTimer2) {
+    loopTimer2 += 100;
+    now2 = millis();
+    dt2 = (now2 - last_time2)/1000;
+    last_time2 = now2;
 
+    outeraddon = pid_2(want_speed-(step1.getSpeedRad()),dt2);
+    outeraddon = constrain(outeraddon, -0.03, 0.03);
+    outeraddon = outeraddon -0.03;
+  }
 
   //Run the control loop every LOOP_INTERVAL ms inner loop
   if (millis() > loopTimer) {
@@ -375,7 +485,7 @@ void loop()
     tilt_x = 0.98 * (tilt_x_prev + gyro_y * dt) + 0.02 * accel_angle;
     tilt_x_prev = tilt_x;
 
-    error =   0.12 - (tilt_x) + outeraddon;
+    error =   0.2 - (tilt_x);
     accel = pid_1(error);
 
     motorspeed += accel * dt;
@@ -425,16 +535,6 @@ void loop()
 
   }
 
-// outer loops
-  if (millis() > loopTimer2) {
-    loopTimer2 += 100;
-    now2 = millis();
-    dt2 = (now2 - last_time2)/1000;
-    last_time2 = now2;
-
-    outeraddon = pid_2(want_speed-(step1.getSpeedRad()),dt2);
-    outeraddon = constrain(outeraddon, 0.03, -0.03);
-  }
 
 
   //Print updates every PRINT_INTERVAL ms
@@ -482,51 +582,51 @@ void loop()
     // send(clientSocket, buffer, strlen(buffer), 0);
     Serial.println();
 
-    if (Serial.available()){
-      char key_press = Serial.read();
+    // if (Serial.available()){
+    //   char key_press = Serial.read();
 
-      key_press = tolower(key_press);
+    //   key_press = tolower(key_press);
 
-      if(key_press == 'w'){
-        Serial.println("w");
-        angle_found = angle_found+0.01;
-        want_speed = 10;
+    //   if(key_press == 'w'){
+    //     Serial.println("w");
+    //     angle_found = angle_found+0.01;
+    //     want_speed = 10;
 
-        //outeraddon = 0.03;
-      }
+    //     //outeraddon = 0.03;
+    //   }
 
-      else if(key_press == 's'){
-        Serial.println("s");
-        angle_found = angle_found-0.01;
-        want_speed = -10;
+    //   else if(key_press == 's'){
+    //     Serial.println("s");
+    //     angle_found = angle_found-0.01;
+    //     want_speed = -10;
 
-        //outeraddon = -0.03;
-      }
+    //     //outeraddon = -0.03;
+    //   }
 
-      else if(key_press == 'x'){
-        Serial.println('x');
-        angle_found = 0.13;
-        want_speed =0;
-        turn =0;
-        //outeraddon = 0;
-      }
-      else if(key_press == 'a'){
-        Serial.println('a');
-        turn =-8;
-        //outeraddon = 0;
-      }
-      else if(key_press == 'd'){
-        Serial.println('d');
-        turn =8;
-        //outeraddon = 0;
-      }
-      else{
-        Serial.println("nun");
-        angle_found = 0.13;
-        turn =0;
-      }
+    //   else if(key_press == 'x'){
+    //     Serial.println('x');
+    //     angle_found = 0.13;
+    //     want_speed =0;
+    //     turn =0;
+    //     //outeraddon = 0;
+    //   }
+    //   else if(key_press == 'a'){
+    //     Serial.println('a');
+    //     turn =-8;
+    //     //outeraddon = 0;
+    //   }
+    //   else if(key_press == 'd'){
+    //     Serial.println('d');
+    //     turn =8;
+    //     //outeraddon = 0;
+    //   }
+    //   else{
+    //     Serial.println("nun");
+    //     angle_found = 0.13;
+    //     turn =0;
+    //   }
 
-    }
+    // }
 
 
 
