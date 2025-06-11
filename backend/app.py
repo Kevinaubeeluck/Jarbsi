@@ -1,6 +1,9 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from create_db import get_battery, set_battery, Session
+from create_db import (
+    get_battery, set_battery,
+    add_telemetry, latest_telemetry   # ← NEW
+)
 import socket
 import threading
 from collections import deque
@@ -63,6 +66,22 @@ def send_command():
             except Exception as e:
                 status = f"Failed to send: {e}"
     return jsonify({"status": status})
+
+
+@app.route("/api/telemetry")
+def api_telemetry():
+    row = latest_telemetry()
+    if not row:
+        return jsonify({})
+    return jsonify({
+        "level"   : row.bat_pct,
+        "bat_volt": row.bat_volt,
+        "v5_volt" : row.v5_volt,
+        "mot_volt": row.mot_volt,
+        "mot_curr": row.mot_curr,
+        "v5_curr" : row.v5_curr,
+        "ts"      : row.created_at.isoformat()
+    })
 
 
 leaderboard_data = [
@@ -130,20 +149,34 @@ def tcp_server():
                 msg = f"BAT:{bat:.2f}\n"
                 conn.send(msg.encode())
                 app.logger.debug("→ sent stored battery %s to ESP", msg.strip())
-            while True:
-                data = conn.recv(1024)
-                if not data:
-                    break
-                line = data.decode().strip()
-                with msg_lock:
-                    messages.append(line)
+            partial = {}                             # collect the six lines
 
-                if line.startswith("BAT:"):
-                    try:
-                        new_level = float(line.split(":", 1)[1])
-                        set_battery(new_level)
-                    except ValueError:
-                        pass
+            while True:
+                chunk = conn.recv(1024)
+                if not chunk:
+                    break
+
+                for raw in chunk.decode().splitlines():
+                    with msg_lock:
+                        messages.append(raw)
+
+                    if raw.startswith("BAT:"):
+                        partial["bat_pct"] = float(raw.split(":",1)[1])
+                    elif raw.startswith("BATVOLT:"):
+                        partial["bat_volt"] = float(raw.split(":",1)[1])
+                    elif raw.startswith("5VVOLT:"):
+                        partial["v5_volt"]  = float(raw.split(":",1)[1])
+                    elif raw.startswith("MOTVOLT:"):
+                        partial["mot_volt"] = float(raw.split(":",1)[1])
+                    elif raw.startswith("MOTCURR:"):
+                        partial["mot_curr"] = float(raw.split(":",1)[1])
+                    elif raw.startswith("5VCURR:"):
+                        partial["v5_curr"]  = float(raw.split(":",1)[1])
+
+                        # ← last line of the block; store and reset
+                        add_telemetry(**partial)
+                        partial.clear()
+
         finally:
             conn.close()
             with esp_lock:

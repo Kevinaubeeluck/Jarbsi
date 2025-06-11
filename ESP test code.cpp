@@ -11,11 +11,12 @@ const char* ssid = "meow";
 const char* password = "hello12345@";
 
 // Server config
-const char* server_ip = "192.168.140.235";
+const char* server_ip = "192.168.17.234";
 const int server_port = 12000;
 
 // PID parameter
 float Kp = 0.0;
+float turn = 0;
 float percentage = 77;
 
 // TCP socket
@@ -57,6 +58,7 @@ void Socketconnect() {
   }
 }
 
+// Receiver loop task
 void recvloopTask(void* pvParameters) {
   char buffer[256] = {0};
   float a;
@@ -66,18 +68,23 @@ void recvloopTask(void* pvParameters) {
     if (bytesReceived > 0) {
       buffer[bytesReceived] = '\0';
       Serial.println(buffer);
+      Serial.println(percentage);
 
       if (sscanf(buffer, "SET_KP(%f)", &a) == 1) {
         Kp = a;
         Serial.print("Updated Kp: ");
         Serial.println(Kp);
       }
-      else if(sscanf(buffer, "BAT:%f", &a) == 1){
+      if(sscanf(buffer, "BAT:%f", &a) == 1){
         percentage = a;
         Serial.println("Server percentage: ");
         Serial.println(percentage);     
       }
-
+      if (sscanf(buffer, "SET_TURN(%f)", &a) == 1) {
+        turn = a;
+        Serial.print("Updated turn: ");
+        Serial.println(turn);
+      }
       memset(buffer, 0, sizeof(buffer));
     }
 
@@ -109,6 +116,10 @@ void loop() {
     timer += 1000;
     Serial.print("Current Kp: ");
     Serial.println(Kp);
+    Serial.print("Current battery: ");
+    Serial.println(percentage);
+    Serial.print("Current turn: ");
+    Serial.println(turn);
 
     if (clientSocket < 0) {                // reconnect if needed
       Socketconnect();
@@ -116,14 +127,20 @@ void loop() {
 
     // Optionally send Kp value to server every second
     if (clientSocket > 0) {
-      char buffer[128];
-      snprintf(buffer, sizeof(buffer), "Kp=%.2f\n", Kp);
-      send(clientSocket, buffer, strlen(buffer), 0);
-    
-      memset(buffer, 0, sizeof(buffer));
-      snprintf(buffer,sizeof(buffer), "BAT:%f" ,percentage);
-      percentage -= 0.01;
-      send(clientSocket,buffer,strlen(buffer), 0);
+      char bigbuffer[512];
+      snprintf(bigbuffer, sizeof(bigbuffer),
+              "Kp=%.2f\nBAT:%f\nBATVOLT:%f\n5VVOLT:%f\nMOTVOLT:%f\nMOTCURR:%f\n5VCURR:%f\n",
+              Kp,
+              percentage,
+              percentage - 0.01,
+              percentage - 0.02,
+              percentage - 0.03,
+              percentage - 0.04,
+              percentage - 0.05);
+
+      send(clientSocket, bigbuffer, strlen(bigbuffer), 0);
+
+
     }
   }
 }

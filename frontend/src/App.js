@@ -2,8 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import ParameterBox from './components/ParameterBox';
 import MessageLog from './components/MessageLog';
 import Leaderboard from './components/leaderboard';
-import BatteryStatus from './components/Batterystatus';
-
+import PowerStatus from './components/PowerStatus';
 
 
 const API_BASE = "http://192.168.17.234:8000"; 
@@ -104,7 +103,7 @@ useEffect(() => {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '20px', padding: '20px' }}>
       <div style={{ gridColumn: '1 / -1' }}>
-        <BatteryStatus />
+        <PowerStatus />
       </div>
       {PARAMS.map(p => (
         <ParameterBox

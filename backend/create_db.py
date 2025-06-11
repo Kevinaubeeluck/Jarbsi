@@ -44,3 +44,35 @@ def set_battery(level: float, db=None) -> None:
         db.add(Battery(id=1, level=level, updated_at=now))
     db.commit()
     if owns_session: db.close()
+
+
+# create_db.py  (only the new bits are shown)
+class Telemetry(Base):
+    __tablename__ = "telemetry"
+
+    id         = Column(Integer, primary_key=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow, index=True)
+
+    bat_pct   = Column(Float)   # old battery percentage
+    bat_volt  = Column(Float)
+    v5_volt   = Column(Float)
+    mot_volt  = Column(Float)
+    mot_curr  = Column(Float)
+    v5_curr   = Column(Float)
+
+Base.metadata.create_all(engine)
+
+# helper functions
+def add_telemetry(db=None, **fields):
+    owns = db is None
+    db   = db or Session()
+    db.add(Telemetry(**fields))
+    db.commit()
+    if owns: db.close()
+
+def latest_telemetry(db=None):
+    owns = db is None
+    db   = db or Session()
+    row  = db.query(Telemetry).order_by(Telemetry.created_at.desc()).first()
+    if owns: db.close()
+    return row
