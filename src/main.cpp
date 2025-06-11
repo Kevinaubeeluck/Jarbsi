@@ -36,9 +36,9 @@ float absolutemin_tilt= 0.11;
 //Voltage values:
 float Vm, I_m,V_5, I_5,V_B;
 float CouloumbCount = 0;
-float BatterySOC; //must load from server. Server should have a set battery SOC as well incase new one is placed back in.
+float BatterySOC = 100; //must load from server. Server should have a set battery SOC as well incase new one is placed back in.
 const float ratedColoumb = 2000*3600;
-
+float I_mAVg = 0;
 
 float value_speed = 35;
 float motorspeed =0;
@@ -166,6 +166,9 @@ uint16_t readADC(uint8_t channel) {
 
 void setup()
 {
+  
+
+
   pinMode(LED,OUTPUT);
   Serial.begin(115200);
   pinMode(TOGGLE_PIN,OUTPUT);
@@ -338,22 +341,23 @@ void loop()
     
 
   }
-  
+
   if (millis() > powerTimer) {
-    printTimer += POWER_INTERVAL;
+    powerTimer += POWER_INTERVAL;
     
     //Motor Voltage
-    Vm = ((readADC(0) * VREF)/4095.0) *6.0; //multiply voltage divider to obtain it back. --510k -Vm- 100k --- GND connection
+    I_m = (((((readADC(5) * VREF)/4095.0)*1000)/1000+0.025)+0.04) * 6.2; //multiply voltage divider to obtain it back. --510k -Vm- 100k --- GND connection
+    I_mAVg += I_m;
     //Motor shunt Differential Voltage
-    I_m = (((readADC(1) * VREF)/4095.0) * 6/100)/0.1; //revert back to differential voltage and divide resistance to obtain current
+    //I_m = (((readADC(1) * VREF)/4095.0)); //revert back to differential voltage and divide resistance to obtain current
     //5V
-    V_5 = ((readADC(2) * VREF)/4095.0) *2; // Voltage divider circuit to lower voltage in half, use 100k -- 100k
+    Vm = ((readADC(2) * VREF)/4095.0)*6.2; // Voltage divider circuit to lower voltage in half, use 100k -- 100k
     //5V shunt differential voltage
     I_5 = ((readADC(3) * VREF)/4095.0) *100 / 0.01; //this time only gain 100
     //Battery Voltage
     V_B = ((readADC(4) * VREF)/4095.0) *6;
     
-    CouloumbCount = CouloumbCount + (I_m + I_5)*POWER_INTERVAL; //rectangle approximation otherwise previous values must be saved
+    CouloumbCount = CouloumbCount + (I_m + I_5)*POWER_INTERVAL/1000; //rectangle approximation otherwise previous values must be saved
 
   }
 
@@ -384,13 +388,18 @@ void loop()
     Serial.print("Motor Voltage: ");
     Serial.println(Vm);
     Serial.print("Motor Current: ");
-    Serial.println(I_m);
+    Serial.println(I_mAVg/5);
     Serial.print("5V voltage: ");
     Serial.println(V_5);
     Serial.print("5V current: ");
     Serial.println(I_5);
-    Serial.print("Battery Voltage");
+    Serial.print("Battery Voltage: ");
     Serial.println(V_B);
+
     BatterySOC = BatterySOC-(CouloumbCount/ratedColoumb)*100;
+    I_mAVg = 0;
+    Serial.print("Battery SOC: ");
+    Serial.println(V_B);
+    
   }
 }
