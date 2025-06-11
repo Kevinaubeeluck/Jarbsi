@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 
-const API = "http://192.168.140.235:8000";
+const API = "http://192.168.17.234:8000";
 
 export default function BatteryStatus() {
   const [level, setLevel] = useState(null);

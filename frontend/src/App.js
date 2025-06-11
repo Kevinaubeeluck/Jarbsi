@@ -1,20 +1,22 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import ParameterBox from './components/ParameterBox';
 import MessageLog from './components/MessageLog';
 import Leaderboard from './components/leaderboard';
 import BatteryStatus from './components/Batterystatus';
 
 
-const API_BASE = "http://192.168.140.235:8000"; 
+
+const API_BASE = "http://192.168.17.234:8000"; 
 
 const PARAMS = [
   'Kp', 'Ki', 'Kd',
   'Kmp', 'Kmi', 'Kmd',
   'absolutemax_tilt', 'absolutemin_tilt',
-  'motorspeed_setpoint'
+  'motorspeed_setpoint', 'turn'
 ];
 
 function App() {
+  const activeKeyRef = useRef(null);
   const [values, setValues] = useState({});
   const [messages, setMessages] = useState([]);
 
@@ -40,24 +42,44 @@ function App() {
     return () => { clearInterval(i1); clearInterval(i2); };
   }, [fetchCurrent, fetchMessages]);
 
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key == 'w' || e.key == 'W') {
-        const newVal = 10;
-        sendParam('motorspeed_setpoint', newVal);
+
+useEffect(() => {
+
+  const handleKeyDown = (e) => {
+    if (activeKeyRef.current !== e.key) {
+      activeKeyRef.current = e.key;
+      if (e.key === 'w' || e.key === 'W') {
+        sendParam('Kp', 10);
+      } else if (e.key === 's' || e.key === 'S') {
+        sendParam('Kp', -10);
       }
-      if(e.key == 's' || e.key == 'S') {
-        const newVal = -10;
-        sendParam('motorspeed_setpoint', newVal);
+      if (e.key === 'a' || e.key === 'A') {
+        sendParam('turn', -10);
       }
-      if(e.key == 'Control'){
-        const newVal = 0;
-        sendParam('motorspeed_setpoint', newVal);
+      else if (e.key === 'd' || e.key === 'D'){
+        sendParam('turn', 10);
       }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [values]);
+    }
+  };
+
+  const handleKeyUp = (e) => {
+    if (e.key === activeKeyRef.current) {
+      activeKeyRef.current = null;
+      sendParam('Kp', 0);
+      sendParam('turn', 0);
+
+    }
+  };
+
+  window.addEventListener('keydown', handleKeyDown);
+  window.addEventListener('keyup', handleKeyUp);
+
+  return () => {
+    window.removeEventListener('keydown', handleKeyDown);
+    window.removeEventListener('keyup', handleKeyUp);
+  };
+}, []);
+
 
   const sendParam = (param, value) => {
     const commands = {
@@ -69,7 +91,8 @@ function App() {
       Kmd: `SET_KMD(${value})`,
       absolutemax_tilt: `MAX_TILT(${value})`,
       absolutemin_tilt: `MIN_TILT(${value})`,
-      motorspeed_setpoint: `TARGET_SPEED(${value})`
+      motorspeed_setpoint: `TARGET_SPEED(${value})`,
+      turn: `SET_TURN(${value})`
     };
     fetch(`${API_BASE}/api/send`, {
       method: 'POST',
