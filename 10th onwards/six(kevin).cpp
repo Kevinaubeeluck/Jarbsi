@@ -15,7 +15,7 @@
 
 
 float integral, proportional, derivative, previous, output=0;
-float Ip=3000;
+//float Kp=3000;
 float Ki=0;
 float Kd=0.04;
 float absolutemax_accel = 65;
@@ -198,7 +198,7 @@ float pid_1(float error){
   integral = constrain(integral, -integral_max, integral_max);
   derivative = (error-previous) / dt;
   previous = error;
-  output = (Ip * proportional) + (Ki * integral) + (Kd * derivative);
+  output = (Kp * proportional) + (Ki * integral) + (Kd * derivative);
 
   if(output > absolutemax_accel)
     return absolutemax_accel;
