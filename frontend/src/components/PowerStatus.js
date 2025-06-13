@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-const API = "http://192.168.17.234:8000";
+const API = "http://192.168.84.234:8000";
 
 export default function PowerStatus() {
   const [t, setT] = useState(null);             // latest telemetry object
@@ -12,7 +12,7 @@ export default function PowerStatus() {
         .catch(console.error);
 
     getT();
-    const id = setInterval(getT, 5000);
+    const id = setInterval(getT, 1000);
     return () => clearInterval(id);
   }, []);
 

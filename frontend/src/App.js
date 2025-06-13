@@ -3,9 +3,10 @@ import ParameterBox from './components/ParameterBox';
 import MessageLog from './components/MessageLog';
 import Leaderboard from './components/leaderboard';
 import PowerStatus from './components/PowerStatus';
+import KeyIndicator from './components/Keyinput'
 
 
-const API_BASE = "http://192.168.17.234:8000"; 
+const API_BASE = "http://192.168.84.234:8000"; 
 
 const PARAMS = [
   'Kp', 'Ki', 'Kd',
@@ -105,6 +106,9 @@ useEffect(() => {
       <div style={{ gridColumn: '1 / -1' }}>
         <PowerStatus />
       </div>
+      <div style={{ gridColumn: '1 / -1' }}>
+        <KeyIndicator/>      
+      </div>
       {PARAMS.map(p => (
         <ParameterBox
           key={p}
@@ -115,9 +119,6 @@ useEffect(() => {
       ))}
       <div style={{ gridColumn: '1 / -1' }}>
         <MessageLog messages={messages} />
-      </div>
-      <div style={{ gridColumn: '1 / -1' }}>
-        <Leaderboard />
       </div>
      </div>
   );
