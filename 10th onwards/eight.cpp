@@ -30,6 +30,11 @@ static unsigned long loopTimer = 0;
 float error=0;
 float angle_found=0.13;
 
+float integral2, proportional2, derivative2;
+float Kmp= -0.002, Kmi = 0, Kmd = -0.00003;
+float previous2;
+float output2=0;
+float now2 =0, dt2 =0, last_time2=0, outeraddon=0;
 
 // WiFi credentials
 const char* ssid = "ET";
@@ -57,7 +62,7 @@ float want_speed = 0.13;
 //float turn = 0;
 float c = 1, d = 2, e = 3;
 unsigned long lastUpdate = 0;
-float looptimer2=0;
+float loopTimer2=0;
 
 
 
@@ -222,6 +227,22 @@ float pid_1(float error){
   return output;
 }
 
+
+
+float pid_2(float error2, float dt2){
+  if (dt2 <= 0) return 0;
+
+  float integral_max = 5;  
+  proportional2 = error2;
+  integral2 += error2 * dt2;
+  //integral2 = constrain(integral, -integral_max, integral_max);
+  derivative2 = (error2-previous2) / dt2;
+  previous2 = error2;
+  output2 = (Kmp * proportional2) + (Kmi * integral2) + (Kmd * derivative2);
+  return output2;
+
+}
+
 void setup() {
   Serial.begin(115200);
   delay(1000);
@@ -279,8 +300,26 @@ void setup() {
 }
 float n=0;
 float m=0;
+
+
 void loop() {
+
+
+
+  if (millis() > loopTimer2) {
+    loopTimer2 += 100;
+    now2 = millis();
+    dt2 = (now2 - last_time2)/1000;
+    last_time2 = now2;
+
+    outeraddon = pid_2(direction-(step1.getSpeedRad()),dt2);
+    outeraddon = constrain(outeraddon, -0.03, 0.03);
+  }
+
+
   static unsigned long timer = 0;
+  static unsigned long loopTimer = 0;
+  static unsigned long loopTimer2 = 0;
   if (millis() > timer) {
     timer += 1000;
     Serial.print("tilt:");
@@ -318,46 +357,6 @@ void loop() {
       send(clientSocket, bigbuffer, strlen(bigbuffer), 0);
     }
   }
-  if (millis() > looptimer2) {
-    looptimer2 += 200;
-    
-    if(direction==1){//forward
-      if(n==0){
-        n=1;
-        angle_found_robot += 0.015;
-        Serial.println("dir for, angle inc");
-        timepass1 = millis();
-      }
-      if((n==1 && step1.getSpeedRad() > 1.5)){
-        n=0;
-        angle_found_robot = angle_found;
-        delay(500);
-        Serial.println("dir for, angle dec");        
-      }
-    }
-
-    if(direction==-1){//backwards
-      if(m==0){
-        m=1;
-        angle_found_robot -= 0.015;
-        Serial.println("dir back, angle dec");
-        timepass2 = millis();
-      }
-      if((m==1 && step1.getSpeedRad() < -1)){
-        m=0;
-        angle_found_robot = angle_found;
-        Serial.println("dir back, angle for");
-        delay(500);
-      }
-    }
-
-    if(direction==0){//still
-      angle_found_robot = angle_found;
-      m=0;
-      n=0;
-    }
-
-  }
 
   if (millis() > loopTimer) {
     loopTimer += LOOP_INTERVAL;
@@ -378,16 +377,23 @@ void loop() {
 
 
 
-    error =   angle_found_robot - (tilt_x);
+    error =   angle_found_robot - (tilt_x) + outeraddon;
     accel = pid_1(error);
 
-   // motorspeed += accel * dt;
+   //motorspeed += accel * dt;
 
-    if(accel > 0){
-      motorspeed = 6;
+    // if(motorspeed > 7){
+    //   motorspeed = 7;
+    // }
+    // else if (motorspeed < -7){
+    //   motorspeed = -7;
+    // }
+    
+    if(accel>0){
+      motorspeed = 20;
     }
     else if (accel < 0){
-      motorspeed = -6;
+      motorspeed = -20;
     }
 
 // Clamp it if needed

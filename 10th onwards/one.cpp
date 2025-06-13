@@ -32,7 +32,7 @@ float k=0;
 float actual_motor_speed =0;
 float actual_motor_speed_prev=0;
 float motorspeed_setpoint=0;
-float Kmp= 0.002, Kmi = 0, Kmd =0.00003;
+float Kmp= -0.002, Kmi = 0, Kmd = -0.00003;
 float angle_found =0;
 float error_speed =0;
 float absolutemax_tilt = 0.15;
@@ -485,19 +485,27 @@ void loop()
     tilt_x = 0.98 * (tilt_x_prev + gyro_y * dt) + 0.02 * accel_angle;
     tilt_x_prev = tilt_x;
 
-    error =   0.2 - (tilt_x);
+    error =   0.15 - (tilt_x) + outeraddon;
     accel = pid_1(error);
 
-    motorspeed += accel * dt;
+    //motorspeed += accel * dt;
 
 // Clamp it if needed
-    if(motorspeed > 13){
-      motorspeed = 13;
-    }
-    else if(motorspeed < -13){
-      motorspeed = -13;
-    }
+    // if(motorspeed > 13){
+    //   motorspeed = 13;
+    // }
+    // else if(motorspeed < -13){
+    //   motorspeed = -13;
+    // }
 
+
+
+    if(accel > 0){
+      motorspeed = 10;
+    }
+    else if(motorspeed < 0){
+      motorspeed = -10;
+    }
     // if(motorspeed > 10 or motorspeed < -10){
     //   angle_found = 0.13;
     // }
