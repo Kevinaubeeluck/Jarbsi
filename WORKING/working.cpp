@@ -35,6 +35,7 @@ float Kmp= -0.002, Kmi = 0, Kmd = -0.00003;
 float previous2;
 float output2=0;
 float now2 =0, dt2 =0, last_time2=0, outeraddon=0;
+float motorspeed_setpoint =0;
 
 // WiFi credentials
 const char* ssid = "sachinator13";
@@ -64,7 +65,7 @@ float c = 1, d = 2, e = 3;
 unsigned long lastUpdate = 0;
 float loopTimer2=0;
 
-
+float bias =0;
 
 // The Stepper pins
 const int STEPPER1_DIR_PIN  = 16;
@@ -170,10 +171,10 @@ void recvloopTask(void* pvParameters) {
       Serial.println(buffer);
       Serial.println(percentage);
 
-      if (sscanf(buffer, "SET_KP(%f)", &a) == 1) {
-        Kp = a;
-        Serial.print("Updated Kp: ");
-        Serial.println(Kp);
+      if (sscanf(buffer, "SET_direction(%f)", &a) == 1) {
+        direction = a;
+        Serial.print("Updated direction: ");
+        Serial.println(direction);
       }
       if(sscanf(buffer, "BAT:%f", &a) == 1){
         percentage = a;
@@ -185,10 +186,10 @@ void recvloopTask(void* pvParameters) {
         Serial.print("Updated turn: ");
         Serial.println(turn);
       }
-      if (sscanf(buffer, "TARGET_SPEED(%f)", &a) == 1) {
-        angle_found = a;
-        Serial.print("Updated angle_found: ");
-        Serial.println(angle_found);
+      if (sscanf(buffer, "bias(%f)", &a) == 1) {
+        bias = a;
+        Serial.print("Updated bias: ");
+        Serial.println(bias);
       }
       if (sscanf(buffer, "SET_DIR(%f)", &a) == 1) {
         direction = a;
@@ -312,7 +313,7 @@ void loop() {
     dt2 = (now2 - last_time2)/1000;
     last_time2 = now2;
 
-    outeraddon = pid_2(direction-(step1.getSpeedRad()),dt2);
+    outeraddon = pid_2(direction-(((step1.getSpeedRad() - step2.getSpeedRad())/2)),dt2);
     outeraddon = constrain(outeraddon, -0.03, 0.03);
   }
 
@@ -332,9 +333,10 @@ void loop() {
     Serial.print(angle_found_robot);
     Serial.print(" ,motorspeed:");
     Serial.print(step1.getSpeedRad());
-    Serial.print(" ,accel:");
-    Serial.println(accel);
-
+    Serial.print(" ,bias:");
+    Serial.println(bias);
+    Serial.print(" ,turn:");
+    Serial.println(turn);
 
     if (clientSocket < 0) {                // reconnect if needed
       Socketconnect();
@@ -377,7 +379,7 @@ void loop() {
 
 
 
-    error =   angle_found_robot - (tilt_x) + outeraddon;
+    error =   bias - (tilt_x) + outeraddon;
     accel = pid_1(error);
 
    //motorspeed += accel * dt;

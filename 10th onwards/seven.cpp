@@ -282,10 +282,10 @@ void loop() {
     timer += 1000;
     Serial.print("tilt:");
     Serial.print(tilt_x);
-    Serial.print(" ,Current battery:");
-    Serial.print(percentage);
-    Serial.print(" ,Current turn:");
-    Serial.print(turn);
+    Serial.print(" ,m:");
+    Serial.print(m);
+    Serial.print(" ,n:");
+    Serial.print(n);
     Serial.print(" ,tilt_setpoint:");
     Serial.print(angle_found);
     Serial.print(" ,motorspeed:");
@@ -397,4 +397,3 @@ void loop() {
     step2.setAccelerationRad(accel2-turn);
   }
 }
-
