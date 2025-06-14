@@ -433,7 +433,7 @@ void loop() {
               V_M*I_mAvg);
       //percentage -= 0.01;
 
-      Serial.print(bigbuffer);
+      //Serial.print(bigbuffer);
       send(clientSocket, bigbuffer, strlen(bigbuffer), 0);
 
 
@@ -466,21 +466,21 @@ void loop() {
     error =   bias - (tilt_x) + outeraddon;
     accel = pid_1(error);
 
-   //motorspeed += accel * dt;
+    motorspeed += accel * dt;
 
-    // if(motorspeed > 7){
-    //   motorspeed = 7;
-    // }
-    // else if (motorspeed < -7){
-    //   motorspeed = -7;
-    // }
-    
-    if(accel>0){
+    if(motorspeed > 20){
       motorspeed = 20;
     }
-    else if (accel < 0){
+    else if (motorspeed < -20){
       motorspeed = -20;
     }
+    
+    // if(accel>0){
+    //   motorspeed = 20;
+    // }
+    // else if (accel < 0){
+    //   motorspeed = -20;
+    // }
 
 // Clamp it if needed
 
@@ -497,3 +497,6 @@ void loop() {
     step2.setAccelerationRad(accel2-turn);
   }
 }
+
+
+
