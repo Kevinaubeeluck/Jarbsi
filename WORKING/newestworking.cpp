@@ -584,10 +584,10 @@ void loop() {
 
     float accel1 = accel + turn_rate;
     float accel2 = accel - turn_rate;
-    step1.setTargetSpeedRad(motorspeed + turn_rate);
-    step2.setTargetSpeedRad(-motorspeed + turn_rate);
-    step1.setAccelerationRad(accel);
-    step2.setAccelerationRad(accel);
+    step1.setTargetSpeedRad(motorspeed);
+    step2.setTargetSpeedRad(-motorspeed);
+    step1.setAccelerationRad(accel1);
+    step2.setAccelerationRad(accel2);
   }
 }
 
