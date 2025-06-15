@@ -3,7 +3,6 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import VideoStream from './components/VideoStream';
 import ParameterBox from './components/ParameterBox';
 import MessageLog from './components/MessageLog';
-import Leaderboard from './components/leaderboard';
 import KeyIndicator from './components/Keyinput'
 import PowerStatus from './components/PowerStatus';
 

@@ -49,10 +49,8 @@ export default function PowerStatus() {
     const id = setInterval(getT, 5000);
     return () => clearInterval(id);
   }, []);
-
-  // --- Display Logic ---
   
-  // A dedicated loading state provides a better user experience than returning null
+  // Loading to make it less aggravating things dont work 
   if (isLoading) {
     return (
         <div style={containerStyle}>
@@ -66,7 +64,7 @@ export default function PowerStatus() {
 
 const thStyle = {
   padding: '4px 0',
-  fontWeight: 'normal', // Headers are bold by default, this makes it match the old style
+  fontWeight: 'normal', 
   textAlign: 'left',
 };
 
@@ -76,7 +74,7 @@ const tdStyle = {
   paddingLeft: '1rem',
 };
 
-  // A dedicated error state informs the user what went wrong
+  // Error for when connection falls or anything drops 
   if (error) {
     return (
         <div style={containerStyle}>
@@ -91,14 +89,14 @@ const tdStyle = {
   
   const pct = t.level ?? null;
 
-  // Step 2: Create a helper function to get the right icon and color
+  // This handles what battery icon 
   const getBatteryDisplay = () => {
-    if (pct === null) return { Icon: FaPlug, color: '#38b2ac' }; // Teal for plugged in/no percentage
-    if (pct > 80) return { Icon: FaBatteryFull, color: '#48bb78' }; // Green
-    if (pct > 60) return { Icon: FaBatteryThreeQuarters, color: '#48bb78' }; // Green
-    if (pct > 35) return { Icon: FaBatteryHalf, color: '#f6e05e' }; // Yellow
-    if (pct > 10) return { Icon: FaBatteryQuarter, color: '#f56565' }; // Red
-    return { Icon: FaBatteryEmpty, color: '#c53030' }; // Dark Red
+    if (pct === null) return { Icon: FaPlug, color: '#38b2ac' }; 
+    if (pct > 80) return { Icon: FaBatteryFull, color: '#48bb78' }; 
+    if (pct > 60) return { Icon: FaBatteryThreeQuarters, color: '#48bb78' }; 
+    if (pct > 35) return { Icon: FaBatteryHalf, color: '#f6e05e' }; 
+    if (pct > 10) return { Icon: FaBatteryQuarter, color: '#f56565' }; 
+    return { Icon: FaBatteryEmpty, color: '#c53030' }; 
   };
 
   const { Icon, color } = getBatteryDisplay();
@@ -111,7 +109,6 @@ const tdStyle = {
     })
     .then(r => {
         if (!r.ok) throw new Error('Failed to set battery level.');
-        // Optimistic update
         setT(currentT => ({ ...currentT, level: 100 }));
     })
     .catch(console.error);
@@ -169,7 +166,6 @@ const tdStyle = {
         </tbody>
       </table>
 
-      {/* Step 4: Style the button to match the app theme */}
       <button style={buttonStyle} onClick={handleSetFull}>
         <FaSyncAlt /> Set to 100%
       </button>
@@ -177,7 +173,6 @@ const tdStyle = {
   );
 }
 
-// --- Styles ---
 
 const containerStyle = {
   backgroundColor: '#2d3748',
