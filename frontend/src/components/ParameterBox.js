@@ -18,6 +18,7 @@ function ParameterBox({ name, current, onSend }) {
         padding: '15px',
         borderRadius: '10px',
         boxShadow: '0 2px 8px rgba(139, 11, 11, 0.1)',
+        color: 'black'
       }}
     >
       <h3>{name}</h3>

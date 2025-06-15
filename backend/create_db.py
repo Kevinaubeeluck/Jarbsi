@@ -55,10 +55,13 @@ class Telemetry(Base):
 
     bat_pct   = Column(Float)   # old battery percentage
     bat_volt  = Column(Float)
-    v5_volt   = Column(Float)
     mot_volt  = Column(Float)
     mot_curr  = Column(Float)
+    mot_pow   = Column(Float)
+    v5_volt   = Column(Float)
     v5_curr   = Column(Float)
+    v5_pow    = Column(Float)
+
 
 Base.metadata.create_all(engine)
 

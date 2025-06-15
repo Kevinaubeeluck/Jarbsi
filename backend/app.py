@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from create_db import (
     get_battery, set_battery,
@@ -10,21 +10,19 @@ from collections import deque
 from threading import Lock
 import os
 import logging
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 
-# TCP configuration (override with environment variables if needed)
 
 logging.basicConfig(level=logging.DEBUG,
                     format="%(asctime)s [%(levelname)s] %(message)s")
 app.logger.setLevel(logging.DEBUG)
 
-# --- TCP configuration ---
 TCP_IP = os.getenv("TCP_IP", "0.0.0.0")   # listen everywhere
-TCP_PORT = int(os.getenv("TCP_PORT", 12000))
+TCP_PORT = int(os.getenv("TCP_PORT", 12000)) #12000 is only for 
 
-# Thread‑safe global state
 messages = deque(maxlen=50)
 msg_lock = Lock()
 
@@ -33,14 +31,48 @@ esp_lock = Lock()
 
 last_sent_values = {}
 PARAM_KEYS = [
-    'Kp', 'Ki', 'Kd',
-    'Kmp', 'Kmi', 'Kmd',
-    'absolutemax_tilt', 'absolutemin_tilt',
-    'motorspeed_setpoint'
+  'Kp', 'Ki', 'Kd',
+  'Kmp', 'Kmi', 'Kmd',
+  'absolutemax_tilt', 'absolutemin_tilt',
+  'motorspeed_setpoint', 'turn', 'direction',
+  'manual_override'
 ]
 
+UPLOAD_FOLDER = 'uploads'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@app.route('/api/upload_frame', methods=['POST'])
+def upload_frame():
+    if 'frame' not in request.files:
+        return jsonify({"error": "No frame part"}), 400
+    file = request.files['frame']
+    if file.filename == '': #Delete file in this case 
+        return jsonify({"error": "No selected file"}), 400
+    if file and allowed_file(file.filename):
+        filename = "latest_frame.jpg" 
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(filepath)
+        return jsonify({"status": "Frame received"}), 200
+    return jsonify({"error": "File type not allowed"}), 400
+
+@app.route('/api/latest_frame')
+def latest_frame():
+    return send_from_directory(app.config['UPLOAD_FOLDER'], "latest_frame.jpg")
+
+
+
+
+
 def send_to_esp(payload: str):
-    """Thread-safe write to the current ESP socket (if any)."""
+    """Made this seperate method for a thread-safe send"""
     with esp_lock:
         sock = esp_socket          
     if sock:                       
@@ -80,6 +112,8 @@ def api_telemetry():
         "mot_volt": row.mot_volt,
         "mot_curr": row.mot_curr,
         "v5_curr" : row.v5_curr,
+        "mot_pow" : row.mot_pow,
+        "v5_pow"  : row.v5_pow,
         "ts"      : row.created_at.isoformat()
     })
 
@@ -149,17 +183,14 @@ def tcp_server():
                 msg = f"BAT:{bat:.2f}\n"
                 conn.send(msg.encode())
                 app.logger.debug("→ sent stored battery %s to ESP", msg.strip())
-            partial = {}                             # collect the six lines
-
+            partial = {}
             while True:
                 chunk = conn.recv(1024)
                 if not chunk:
                     break
-
-                for raw in chunk.decode().splitlines():
+                for raw in chunk.decode().splitlines(): #ESP sends all in 1 line, splitting easier on connection
                     with msg_lock:
                         messages.append(raw)
-
                     if raw.startswith("BAT:"):
                         partial["bat_pct"] = float(raw.split(":",1)[1])
                     elif raw.startswith("BATVOLT:"):
@@ -172,8 +203,10 @@ def tcp_server():
                         partial["mot_curr"] = float(raw.split(":",1)[1])
                     elif raw.startswith("5VCURR:"):
                         partial["v5_curr"]  = float(raw.split(":",1)[1])
-
-                        # ← last line of the block; store and reset
+                    elif raw.startswith("5V_Power:"):
+                        partial["v5_pow"]  = float(raw.split(":",1)[1])
+                    elif raw.startswith("Motor_Power:"):
+                        partial["mot_pow"]  = float(raw.split(":",1)[1])
                         add_telemetry(**partial)
                         partial.clear()
 

@@ -1,0 +1,31 @@
+/* Add this to your main CSS file for the spinning animation */
+@keyframes fa-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.fa-spin {
+  animation: fa-spin 2s infinite linear;
+}
+
+:focus-visible {
+  outline: 2px solid #63b3ed; /* A bright, visible blue */
+  outline-offset: 2px;
+  border-radius: 4px; /* Optional: matches your component's border-radius */
+}
+
+.visually-hidden {
+  border: 0;
+  clip: rect(0 0 0 0);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  width: 1px;
+  white-space: nowrap;
+}
