@@ -9,6 +9,7 @@ Madgwick filter;
 float yawRateFiltered = 0;
 float alpha = 0.9;  // Higher = smoother, lower = faster
 float gx_bias = 0, gy_bias = 0, gz_bias = 0;
+float yawRate_deg=0;
 
 void calibrateGyro() {
   const int samples = 200;
@@ -72,7 +73,7 @@ void loop() {
   float gz = g.gyro.z - gz_bias;
 
   float gw_z = 2*(q1*q3 - q0*q2)*gx + 2*(q2*q3 + q0*q1)*gy + (1 - 2*q1*q1 - 2*q2*q2)*gz;
-  float yawRate_deg = gw_z * 180.0 / PI;
+  yawRate_deg = gw_z * 180.0 / PI;
 
 
 
