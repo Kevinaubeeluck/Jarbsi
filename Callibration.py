@@ -7,7 +7,7 @@ def rescaleFrame(frame, scale=0.25): # scale value
     width = int(frame.shape[1] * scale)
     height = int(frame.shape[0] * scale) # [0] is height, [1] is width
     dimensions = (width, height)
-    
+
     return cv.resize(frame, dimensions, interpolation=cv.INTER_AREA) # interpolate area based on new dimensions
 
 # termination criteria
