@@ -4,58 +4,58 @@
 #include <Adafruit_MPU6050.h>
 #include <Adafruit_Sensor.h>
 #include <step.h>
+#include <WiFi.h>
 #include <cstring>
 #include <iostream>
-#include <netinet/in.h>
 #include <sys/socket.h>
-#include <unistd.h>
+#include <netinet/in.h>
 #include <arpa/inet.h>
-#include <stdlib.h>
-#include <WiFi.h> 
+#include <unistd.h>
+#include <string>      // for std::string
+#include <cstring>  
 
-float Kp=3000;
-float Ki=0;
-float Kd=0.01;
-float accel = 0;
-float absolutemax_accel = 75;
-float absolutemax_speed = 35;
-float setpoint = 0;
-float tilt_x =0, tilt_x_prev=0;
-float k=0;
-#define LED 2
+// WiFi credentials
+const char* ssid = "m123";
+const char* password = "12345";
 
-float actual_motor_speed =0;
-float actual_motor_speed_prev=0;
-float motorspeed_setpoint=0;
-float Kmp= 1, kmi = 1, kmd =1;
-float angle_found =0;
-float error_speed =0;
-float absolutemax_tilt = 0.18;
-float absolutemin_tilt= 0.11;
+// Server config
+const char* server_ip = "192.168.34.158";
+const int server_port = 12000;
 
-//Voltage values:
-float Vm, I_m,V_5, I_5,V_B;
-float CouloumbCount = 0;
-float BatterySOC = 100; //must load from server. Server should have a set battery SOC as well incase new one is placed back in.
-const float ratedColoumb = 2000*3600;
-float I_mAVg = 0;
+// PID parameter
+//float Kp = 0.0;
+float turn = 0;
 
-float value_speed = 35;
-float motorspeed =0;
-float tiltx_prev = 0.0;
-float c = 0.85;
-float gyro_y = 0;
-float gyro_x_prev = 0;
-float dt = 0, last_time=0, dg=0;
-float tilt_var =0;
-float now;
-float integral, proportional, derivative, previous, output=0;
+float percentage = 100;
 
+// TCP socket
+int clientSocket = -1;
 
+ // power stuff
+int count = 0;
+float POWER_INTERVAL = 50;
+float V_M, I_M,V_5, I_5,V_B;
+float CoulombCount = 0;
+const float ratedCoulomb = 2*3600;
+float I_mAvg = 0;
+float I_5Avg = 0;
+float VREF = 4.096;
+long prev_power_time = 0;
 
-float error=0, error_prev1 =0, error_prev2=0,controller_prev1 =0, controller_output=0;
+// Task handle for receiver loop
+TaskHandle_t recvTaskHandle = NULL;
 
-float az=0, gz_now=0, gz_prev=0, tilt_comp_prev =0, tilt_comp = 0;
+ESP32Timer ITimer(3);
+Adafruit_MPU6050 mpu;  
+
+float want_speed = 0.13;
+float target_yaw_rate = 0;
+//float turn = 0;
+float c = 1, d = 2, e = 3;
+unsigned long lastUpdate = 0;
+float loopTimer2=0;
+
+float bias =0;
 
 // The Stepper pins
 const int STEPPER1_DIR_PIN  = 16;
@@ -74,67 +74,17 @@ const int ADC_MOSI_PIN      = 23;
 const int TOGGLE_PIN        = 32;
 
 const int PRINT_INTERVAL    = 500;
-const int POWER_INTERVAL = 100;
 const int LOOP_INTERVAL     = 10;
 const int STEPPER_INTERVAL_US = 20;
 
-const float kx = 100.0;
-const float VREF = 4.096;
-
-const char* ssid = "meow";
-const char* password = "hello12345@";
-
-// Global client socket for loop 
-int clientSocket = -1;
-
-
-//Global objects
-ESP32Timer ITimer(3);
-Adafruit_MPU6050 mpu;         //Default pins for I2C are SCL: IO22, SDA: IO21
+float timepass1 = 0;
+float timepass2 = 0;
+float target_speed = 0;
 
 step step1(STEPPER_INTERVAL_US,STEPPER1_STEP_PIN,STEPPER1_DIR_PIN );
 step step2(STEPPER_INTERVAL_US,STEPPER2_STEP_PIN,STEPPER2_DIR_PIN );
 
-
-//Interrupt Service Routine for motor update
-//Note: ESP32 doesn't support floating point calculations in an ISR
-
-void Wificonnect(){
-  WiFi.begin(ssid, password);
-  Serial.print("Connecting to WiFi");
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println("\nWiFi connected. IP: ");
-  Serial.println(WiFi.localIP());
-}
-
-void Socketconnect(){
-  // Connect socket
-  clientSocket = socket(AF_INET, SOCK_STREAM, 0);
-
-  // specifying address
-  sockaddr_in serverAddress;
-  serverAddress.sin_family = AF_INET;
-  serverAddress.sin_port = htons(12000);
-  inet_pton(AF_INET, "192.168.70.169", &serverAddress.sin_addr);
-
-  
-  // sending connection request
-  int connection = connect(clientSocket, (struct sockaddr*)&serverAddress,
-          sizeof(serverAddress));
-  
-  if(connection == 0){
-    Serial.println("HELL YEAH IT'S CONNECTED TO THE SERVER");
-  }
-  else{
-    Serial.println(":( check wifi");
-  }
-}
-
-
-bool TimerHandler(void * timerNo)
+bool TimerHandler(oid * timerNo)
 {
   static bool toggle = false;
 
@@ -145,7 +95,7 @@ bool TimerHandler(void * timerNo)
   //Indicate that the ISR is running
   digitalWrite(TOGGLE_PIN,toggle);  
   toggle = !toggle;
-	return true;
+  return true;
 }
 
 uint16_t readADC(uint8_t channel) {
@@ -164,242 +114,163 @@ uint16_t readADC(uint8_t channel) {
   return result;
 }
 
-void setup()
-{
-  
-
-
-  pinMode(LED,OUTPUT);
-  Serial.begin(115200);
-  pinMode(TOGGLE_PIN,OUTPUT);
-
-  // Try to initialize Accelerometer/Gyroscope
-  if (!mpu.begin()) {
-    Serial.println("Failed to find MPU6050 chip");
-    while (1) {
-      delay(10);
-    }
+void Wificonnect() {
+  WiFi.begin(ssid, password);
+  Serial.print("Connecting to WiFi");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
   }
-  Serial.println("MPU6050 Found!");
-
-  mpu.setAccelerometerRange(MPU6050_RANGE_2_G);
-  mpu.setGyroRange(MPU6050_RANGE_250_DEG);
-  mpu.setFilterBandwidth(MPU6050_BAND_44_HZ);
-
-  //Attach motor update ISR to timer to run every STEPPER_INTERVAL_US μs
-  if (!ITimer.attachInterruptInterval(STEPPER_INTERVAL_US, TimerHandler)) {
-    Serial.println("Failed to start stepper interrupt");
-    while (1) delay(10);
-    }
-  Serial.println("Initialised Interrupt for Stepper");
-
-  //Set motor acceleration values
-  
-
-  step1.setAccelerationRad(accel);
-  step2.setAccelerationRad(accel);
-
-  //Enable the stepper motor drivers
-  pinMode(STEPPER_EN_PIN,OUTPUT);
-  digitalWrite(STEPPER_EN_PIN, false);
-
-  //Set up ADC and SPI
-  pinMode(ADC_CS_PIN, OUTPUT);
-  digitalWrite(ADC_CS_PIN, HIGH);
-  SPI.begin(ADC_SCK_PIN, ADC_MISO_PIN, ADC_MOSI_PIN, ADC_CS_PIN);
-
-  //Wificonnect();
-
-  //Socketconnect();
-
+  Serial.println("\nWiFi connected. IP:");
+  Serial.println(WiFi.localIP());
 }
 
-
-float pid_2(float error){
-  if (dt <= 0) return 0;
-
-  float integral_max = 2;
-  
-  
-  proportional = error;
-  integral += integral * dt;
-  integral = constrain(integral, -integral_max, integral_max);
-  derivative = (error-previous) / dt;
-  previous = error;
-  output = (Kp * proportional) + (Ki * integral) + (Kd * derivative);
-
-  if(output > absolutemax_tilt)
-    return absolutemax_tilt;
-  else if(output < -absolutemin_tilt)
-    return -absolutemin_tilt;
-
-
-   
-  return output;
-}
-
-
-float pid_1(float error){
-  if (dt <= 0) return 0;
-
-  float integral_max = 5;
-  
-  
-  proportional = error;
-  integral += integral * dt;
-  integral = constrain(integral, -integral_max, integral_max);
-  derivative = (error-previous) / dt;
-  previous = error;
-  output = (Kp * proportional) + (Ki * integral) + (Kd * derivative);
-
-  if(output > absolutemax_accel)
-    return absolutemax_accel;
-  else if(output < -absolutemax_accel)
-    return -absolutemax_accel;
-
-
-   
-  return output;
-}
-
-void loop()
-{
-  //test comment branch
-
-
-  //Static variables are initialised once and then the value is remembered betweeen subsequent calls to this function
-  static unsigned long printTimer = 0;  //time of the next print
-  static unsigned long loopTimer = 0;   //time of the next control update
-  static unsigned long powerTimer = 0;   //time of the next power update
-  
-  static float tiltx = 0.0;             //current tilt angle
-  
-  //Run the control loop every LOOP_INTERVAL ms
-  if (millis() > loopTimer) {
-    loopTimer += LOOP_INTERVAL;
-    now = millis();
-    dt = (now - last_time)/1000;
-    last_time = now;
-    // Fetch data from MPU6050
-    sensors_event_t a, g, temp;
-    mpu.getEvent(&a, &g, &temp);
-
-
-
-
-    //speed controller
-    actual_motor_speed_prev = actual_motor_speed;
-    actual_motor_speed = (step1.getSpeed() + step2.getSpeed())/2;
-    error_speed = actual_motor_speed - motorspeed_setpoint;
-    angle_found = pid_2(error_speed);
-
-
-
-
-
-    
-    // float accel_angle = atan2(a.acceleration.y, a.acceleration.z) * 180.0 / PI;
-    float accel_angle = a.acceleration.z / 9.67;
-    gyro_y = g.gyro.y; // degrees per second
-
-    tilt_x = 0.98 * (tilt_x_prev + gyro_y * dt) + 0.02 * accel_angle;
-    tilt_x_prev = tilt_x;
-
-
-
-    error = (setpoint - (tilt_x));
-    accel = pid_1(error);
-
-
-    if(motorspeed > absolutemax_speed){
-      motorspeed = absolutemax_speed;
-    }
-    else if(motorspeed < -absolutemax_speed){
-      motorspeed = absolutemax_speed;
-    }
-
-
-    if(accel<0){
-      motorspeed = -value_speed;
-    }
-    else{
-      motorspeed = value_speed;
-    }
-
-
-    step1.setTargetSpeedRad(motorspeed);
-    step2.setTargetSpeedRad(-motorspeed);
-
-    step1.setAccelerationRad(accel);
-    step2.setAccelerationRad(accel);
-
-    k=k+1;
-    if(k==701){
-      setpoint = tilt_x;
-      digitalWrite(LED,HIGH);
-    }
-    
-
+void Socketconnect() {
+  clientSocket = socket(AF_INET, SOCK_STREAM, 0);
+  if (clientSocket < 0) {
+    Serial.println("Socket creation failed.");
+    return;
   }
+  sockaddr_in serverAddress;
+  serverAddress.sin_family = AF_INET;
+  serverAddress.sin_port = htons(server_port);
+  inet_pton(AF_INET, server_ip, &serverAddress.sin_addr);
+
+  int connection = connect(clientSocket, (struct sockaddr*)&serverAddress, sizeof(serverAddress));
+  if (connection == 0) {
+    Serial.println("Connected to server!");
+  } else {
+    Serial.println("Failed to connect to server :(");
+    Serial.print("errno: ");
+    Serial.println(errno);
+  }
+}
+
+// Receiver loop task
+void recvloopTask(void* pvParameters) {
+  char buffer[256] = {0};
+  float a;
+
+  while (true) {
+    int bytesReceived = recv(clientSocket, buffer, sizeof(buffer), 0);
+    if (bytesReceived > 0) {
+      buffer[bytesReceived] = '\0';
+      Serial.println(buffer);
+      Serial.println(percentage);
+
+      
+      if(sscanf(buffer, "BAT:%f", &a) == 1){
+        percentage = a;
+        Serial.println("Server percentage: ");
+        Serial.println(percentage);     
+      }
+      
+      }
+      memset(buffer, 0, sizeof(buffer));
+    }
+    vTaskDelay(10 / portTICK_PERIOD_MS);
+  }
+}
+
+
+
+
+
+void loop() {
+  static unsigned long timer,powerTimer = 0;
 
   if (millis() > powerTimer) {
+    
     powerTimer += POWER_INTERVAL;
     
+    //Motor Current
+    I_M = ((readADC(5) * VREF)/4095.0);    
+    I_M = I_M - V_5/4.96;
+    I_M = I_M * 1000; // convert to mV
+    I_M = I_M/10; //divide differential gain
+    I_M = I_M*6.7; //voltage divider
+    I_M = I_M/100; //divide resistance for current
+    I_mAvg += I_M;
+    
+    
     //Motor Voltage
-    I_m = (((((readADC(5) * VREF)/4095.0)*1000)/1000+0.025)+0.04) * 6.2; //multiply voltage divider to obtain it back. --510k -Vm- 100k --- GND connection
-    I_mAVg += I_m;
-    //Motor shunt Differential Voltage
-    //I_m = (((readADC(1) * VREF)/4095.0)); //revert back to differential voltage and divide resistance to obtain current
-    //5V
-    Vm = ((readADC(2) * VREF)/4095.0)*6.2; // Voltage divider circuit to lower voltage in half, use 100k -- 100k
-    //5V shunt differential voltage
-    I_5 = ((readADC(3) * VREF)/4095.0) *100 / 0.01; //this time only gain 100
+    V_M = ((readADC(1) * VREF)/4095.0); // Voltage divider circuit
+    V_M = V_M +0.03;//quantization error + error from connecting to pin
+    V_M = V_M - 0.013; //offset error
+    V_M = V_M* 6.15; //voltage divider
+
+    //5V current
+    I_5 = ((readADC(3) * VREF)/4095.0) ; //this time only gain 100
+    I_5 = I_5+ 0.03; // quant error
+    I_5 = I_5 - V_5/4.96; // reference voltage get actual differential
+    I_5 = I_5*1000; //convert to mV
+    I_5 = I_5/100; // divide differential gain
+    I_5 = I_5 -0.1; // offset error
+    I_5 = I_5/10; // convert to current value
+    I_5Avg += I_5; // sum to take an average
+
     //Battery Voltage
-    V_B = ((readADC(4) * VREF)/4095.0) *6;
-    
-    CouloumbCount = CouloumbCount + (I_m + I_5)*POWER_INTERVAL/1000; //rectangle approximation otherwise previous values must be saved
+    V_B = ((readADC(4) * VREF)/4095.0);
+    V_B = V_B+0.034; //0.03 quantization error
+    V_B = V_B - 0.02; //input offset voltage
+    V_B = V_B *6.17; //voltage divider
+    //5V
+    V_5 = ((readADC(0) * VREF)/4095.0); 
+    V_5 = V_5 + 0.017;// quantization error
+    V_5 = V_5 -0.007; //input offset voltage
+    V_5 = V_5*4.96; //Voltage divider
 
+    count = count+1;
+  }
+
+
+  //server update and coulomb counting
+  if (millis() > timer) {
+    timer += 1000;
+
+    I_mAvg/=count;
+    I_5Avg/=count;
+    
+    CoulombCount = CoulombCount + (I_mAvg + I_5Avg)*(millis()-prev_power_time)/1000; //rectangle approximation
+    
+    if (clientSocket < 0) {                // reconnect if needed
+      Socketconnect();
+    }
+
+
+    //Send Power monitoring data to server
+    if (clientSocket > 0) {
+      char bigbuffer[512];
+      snprintf(bigbuffer, sizeof(bigbuffer),
+              "\nBAT:%f\nBATVOLT:%f\n5VVOLT:%f\nMOTVOLT:%f\nMOTCURR:%f\n5VCURR:%f\n5V_Power:%f\nMotor_Power:%f\n",
+              percentage-(CoulombCount/ratedCoulomb) * 100,
+              V_B,
+              V_5,
+              V_M,
+              I_mAvg,
+              I_5Avg,
+              V_5*I_5Avg, //power consumption of 5V supply P = IV
+              V_M*I_mAvg);//power consumption of Motor supply P = IV
+      //percentage -= 0.01;
+
+      Serial.print(bigbuffer);
+      send(clientSocket, bigbuffer, strlen(bigbuffer), 0);
+
+
+    }
+    I_mAvg = 0;
+    I_5Avg = 0;
+    count = 0;
+    prev_power_time = millis();
   }
 
 
 
-  //Print updates every PRINT_INTERVAL ms
-  //Line format: X-axis tilt, Motor speed, A0 Voltage
-  if (millis() > printTimer) {
-    printTimer += PRINT_INTERVAL;
 
-    //char buffer[32];
-    //snprintf(buffer, sizeof(buffer), "%.3f,%.3f,%.3f,%.3f,%.4f",step1.getSpeedRad(),tilt_x,motorspeed,setpoint,accel);
-    //send(clientSocket, buffer, strlen(buffer), 0);
 
-    // Serial.print(step1.getSpeedRad());
-    // Serial.print(',');
-    // Serial.print(tilt_x);
-    // Serial.print(',');
-    // Serial.print(motorspeed);
-    // Serial.print(',');
-    // Serial.print(setpoint);
-    // Serial.print(',');
-    // Serial.print(accel);
-    
-    Serial.print("X tilt: ");
-    Serial.println(tilt_x);
 
-    Serial.print("Motor Voltage: ");
-    Serial.println(Vm);
-    Serial.print("Motor Current: ");
-    Serial.println(I_mAVg/5);
-    Serial.print("5V voltage: ");
-    Serial.println(V_5);
-    Serial.print("5V current: ");
-    Serial.println(I_5);
-    Serial.print("Battery Voltage: ");
-    Serial.println(V_B);
 
-    BatterySOC = BatterySOC-(CouloumbCount/ratedColoumb)*100;
-    I_mAVg = 0;
-    Serial.print("Battery SOC: ");
-    Serial.println(V_B);
-    
-  }
+
+
+
 }
