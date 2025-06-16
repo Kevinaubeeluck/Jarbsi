@@ -13,7 +13,6 @@
 #include <unistd.h>
 #include "MadgwickAHRS.h"
 
-
 float integral, proportional, derivative, previous, output=0;
 float absolutemax_accel = 65;
 float absolutemax_speed = 35;
@@ -36,11 +35,9 @@ float now2 =0, dt2 =0, last_time2=0, outeraddon=0;
 float motorspeed_setpoint =0;
 
 //pid values
-
 float Kp=3000, Ki=0, Kd=0.04;
 float Kmp= -0.002, Kmi = 0, Kmd = -0.00003;
 float K3p = -0.5, K3i = 0, K3d = 0;
-
 
 // WiFi credentials
 const char* ssid = "sachinator13";
@@ -49,9 +46,6 @@ const char* password = "hahahaha";
 // Server config
 const char* server_ip = "192.168.34.158";
 const int server_port = 12000;
-
-// PID parameter
-//float Kp = 0.0;
 float turn = 0;
 float percentage = 77;
 
@@ -76,19 +70,14 @@ ESP32Timer ITimer(3);
 Adafruit_MPU6050 mpu;  
 Madgwick filter;
 
-//yaw readings (angular rotation readings)
+//yaw readings 
 float rotationtimer=0;
-float alpha = 0.9;  // Higher = smoother, lower = faster
+float alpha = 0.9;  
 float gx_bias = 0, gy_bias = 0, gz_bias = 0;
 float yawRate_deg=0;
 float turn_rate=0;
-
-float want_speed = 0.13;
-//float turn = 0;
-float c = 1, d = 2, e = 3;
 unsigned long lastUpdate = 0;
 float loopTimer2=0;
-
 float bias =0;
 
 // The Stepper pins
@@ -106,17 +95,11 @@ const int ADC_MOSI_PIN      = 23;
 
 // Diagnostic pin for oscilloscope
 const int TOGGLE_PIN        = 32;
-
 const int PRINT_INTERVAL    = 500;
 const int LOOP_INTERVAL     = 10;
 const int STEPPER_INTERVAL_US = 20;
-
-float timepass1 = 0;
-float timepass2 = 0;
-
 step step1(STEPPER_INTERVAL_US,STEPPER1_STEP_PIN,STEPPER1_DIR_PIN );
 step step2(STEPPER_INTERVAL_US,STEPPER2_STEP_PIN,STEPPER2_DIR_PIN );
-
 float angle_found_robot =0;
 
 
@@ -199,7 +182,6 @@ void Socketconnect() {
   }
 }
 float direction=0;
-// Receiver loop task
 void recvloopTask(void* pvParameters) {
   char buffer[256] = {0};
   float a;
@@ -316,8 +298,6 @@ float pid_1(float error){
   return output;
 }
 
-
-
 float pid_2(float error2, float dt2){
   if (dt2 <= 0) return 0;
 
@@ -380,40 +360,24 @@ void setup() {
   mpu.setAccelerometerRange(MPU6050_RANGE_2_G);
   mpu.setGyroRange(MPU6050_RANGE_250_DEG);
   mpu.setFilterBandwidth(MPU6050_BAND_44_HZ);
-
-  filter.begin(100);  // 100 Hz
+  filter.begin(100);  
   calibrateGyro();
-
-
-  //Attach motor update ISR to timer to run every STEPPER_INTERVAL_US Î¼s
   if (!ITimer.attachInterruptInterval(STEPPER_INTERVAL_US, TimerHandler)) {
     Serial.println("Failed to start stepper interrupt");
     while (1) delay(10);
     }
   Serial.println("Initialised Interrupt for Stepper");
-
-
-
   step1.setAccelerationRad(accel);
   step2.setAccelerationRad(accel);
-
-  //Enable the stepper motor drivers
   pinMode(STEPPER_EN_PIN,OUTPUT);
   digitalWrite(STEPPER_EN_PIN, false);
-
-  //Set up ADC and SPI
   pinMode(ADC_CS_PIN, OUTPUT);
   digitalWrite(ADC_CS_PIN, HIGH);
   SPI.begin(ADC_SCK_PIN, ADC_MISO_PIN, ADC_MOSI_PIN, ADC_CS_PIN);
-
-    
 }
-float n=0;
-float m=0;
-
 
 void loop() {
-  static unsigned long timer = 0; //server updating timer
+  static unsigned long timer = 0; 
   static unsigned long loopTimer = 0;
   static unsigned long loopTimer2 = 0;
   static unsigned long loopTimer3 = 0;
@@ -427,7 +391,7 @@ void loop() {
     last_time2 = now2;
 
     outeraddon = pid_2(direction-(((step1.getSpeedRad() - step2.getSpeedRad())/2)),dt2);
-    outeraddon = constrain(outeraddon, -0.03, 0.03);
+    outeraddon = constrain(outeraddon, -0.03, 0.03); // constrain the output
   }
 
 
@@ -496,36 +460,37 @@ void loop() {
     
 
 
-    timer += 1000;
-    Serial.print("turn:");
-    Serial.print(turn);
-    Serial.print(" ,yaw rate:");
-    Serial.print(yawRate_deg);
-    Serial.print(" ,pid input:");
-    Serial.print(turn - yawRate_deg);
-    Serial.print(" ,Pid output:");
-    Serial.print(turn_rate);
-    Serial.print(" ,K3p:");
-    Serial.print(K3p);
-    Serial.print(" ,K3i:");
-    Serial.print(K3i);
-    Serial.print(" ,K3d:");
-    Serial.println(K3d);
+    // timer += 1000; 
+    // Serial.print("turn:");
+    // Serial.print(turn);                 used for debugging through the serial monitor
+    // Serial.print(" ,yaw rate:");
+    // Serial.print(yawRate_deg);
+    // Serial.print(" ,pid input:");
+    // Serial.print(turn - yawRate_deg);
+    // Serial.print(" ,Pid output:");
+    // Serial.print(turn_rate);
+    // Serial.print(" ,K3p:");
+    // Serial.print(K3p);
+    // Serial.print(" ,K3i:");
+    // Serial.print(K3i);
+    // Serial.print(" ,K3d:");
+    // Serial.println(K3d);
 
     if (clientSocket < 0) {                // reconnect if needed
       Socketconnect();
     }
 
-    // Optionally send Kp value to server every second
+    // send values to server every second
     if (clientSocket > 0) {
-      char bigbuffer[512];
+      char bigbuffer[512];                  //  these are read on the server end as:
+                                            //  input: 10
+                                            //  output: 5  
+                                            //  and are continuosly fed into a python script on the server.
       snprintf(bigbuffer, sizeof(bigbuffer),
               "input:%.2f\noutput:%f\n",
               direction,
               (((step1.getSpeedRad() - step2.getSpeedRad())/2)));
-      //percentage -= 0.01;
-
-      //Serial.print(bigbuffer);
+ 
       send(clientSocket, bigbuffer, strlen(bigbuffer), 0);
 
 
@@ -548,8 +513,8 @@ void loop() {
 
     //tilt angle calculations
     float accel_angle = a.acceleration.z / 9.67;
-    gyro_y = g.gyro.y; // degrees per second
-    tilt_x = 0.98 * (tilt_x_prev + gyro_y * dt) + 0.02 * accel_angle;
+    gyro_y = g.gyro.y; 
+    tilt_x = 0.98 * (tilt_x_prev + gyro_y * dt) + 0.02 * accel_angle; // complementary filter
     tilt_x_prev = tilt_x;
 
 
@@ -565,7 +530,7 @@ void loop() {
     float gx = g.gyro.x - gx_bias;
     float gy = g.gyro.y - gy_bias;
     float gz = g.gyro.z - gz_bias;
-
+    //  below is the code to obtain the yaw_rate in rad/s via  asingle component of a matrix multiplication.
     float gw_z = 2*(q1*q3 - q0*q2)*gx + 2*(q2*q3 + q0*q1)*gy + (1 - 2*q1*q1 - 2*q2*q2)*gz;
     yawRate_deg = gw_z * 180.0 / PI;
 
@@ -575,10 +540,8 @@ void loop() {
 
     //angle tilt pid loop
     error =   bias - (tilt_x) + outeraddon;
-    //error = bias - tilt_x;
     accel = pid_1(error);
     turn_rate = pid_3(turn - yawRate_deg, dt);
-    //turn_rate = 0;
 
 
     //motorspeed clamping and control
@@ -589,18 +552,8 @@ void loop() {
     else if (motorspeed < -20){
       motorspeed = -20;
     }
-    
-    // if(accel>0){
-    //   motorspeed = 20;
-    // }
-    // else if (accel < 0){
-    //   motorspeed = -20;
-    // }
 
-// Clamp it if needed
-
-
-    float accel1 = accel + turn_rate;
+    float accel1 = accel + turn_rate;  
     float accel2 = accel - turn_rate;
     step1.setTargetSpeedRad(motorspeed);
     step2.setTargetSpeedRad(-motorspeed);
