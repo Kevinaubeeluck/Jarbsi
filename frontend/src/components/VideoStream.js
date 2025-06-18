@@ -10,6 +10,7 @@ const VideoStream = ({ apiBase, onManualOverride, isManualOverrideActive }) => {
       setImageSrc('');
   };
 
+
   useEffect(() => {
     const intervalId = setInterval(() => {
       const newSrc = `${apiBase}/api/latest_frame?_=${new Date().getTime()}`;
@@ -19,6 +20,25 @@ const VideoStream = ({ apiBase, onManualOverride, isManualOverrideActive }) => {
     return () => clearInterval(intervalId);
   }, [apiBase]);
 
+
+  const [latestObstacleMsg, setLatestObstacleMsg] = useState('');
+
+useEffect(() => {
+  const fetchObstacleMessage = () => {
+    fetch(`${apiBase}/api/latest_obstacles`)
+      .then(res => res.json())
+      .then(data => {
+        // Check if the response is a plain string or inside a 'message' key
+        const msg = typeof data === 'string' ? data : data.message;
+        setLatestObstacleMsg(msg);
+      })
+      .catch(() => setLatestObstacleMsg(''));
+  };
+
+  const interval = setInterval(fetchObstacleMessage, 1000);
+  return () => clearInterval(interval);
+}, [apiBase]);
+  
   const containerStyle = {
     backgroundColor: '#2d3748',
     padding: '1rem',
@@ -81,6 +101,7 @@ const VideoStream = ({ apiBase, onManualOverride, isManualOverrideActive }) => {
           style={imageStyle}
           onError={handleImageError}
         />
+
       ) : (
         <div style={{...imageStyle, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem'}}>
           <FaSpinner aria-hidden="true" className="fa-spin" style={{ fontSize: '2rem' }} />
@@ -95,7 +116,13 @@ const VideoStream = ({ apiBase, onManualOverride, isManualOverrideActive }) => {
       >
         <FaExclamationTriangle aria-hidden="true" /> {isManualOverrideActive ? 'Deactivate Manual Override' : 'Activate Manual Override'}
       </button>
+      <p style={{ marginTop: '1rem', color: '#cbd5e0', fontSize: '0.9rem', textAlign: 'center' }}>
+  {latestObstacleMsg || 'No obstacle data.'}
+</p>
+
     </div>
+
+
   );
 };
 

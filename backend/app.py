@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from create_db import (
     get_battery, set_battery,
-    add_telemetry, latest_telemetry   
+    add_telemetry, latest_telemetry   # ← NEW
 )
 import socket
 import threading
@@ -16,6 +16,9 @@ app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 
+import json
+latest_obstacles = ""
+
 logging.basicConfig(level=logging.DEBUG,
                     format="%(asctime)s [%(levelname)s] %(message)s")
 app.logger.setLevel(logging.DEBUG)
@@ -23,7 +26,7 @@ app.logger.setLevel(logging.DEBUG)
 TCP_IP = os.getenv("TCP_IP", "0.0.0.0")   # listen everywhere
 TCP_PORT = int(os.getenv("TCP_PORT", 12000)) #12000 is only for 
 
-messages = deque(maxlen=100)
+messages = deque(maxlen=50)
 msg_lock = Lock()
 
 esp_socket = None
@@ -53,16 +56,32 @@ def allowed_file(filename):
 def upload_frame():
     if 'frame' not in request.files:
         return jsonify({"error": "No frame part"}), 400
-    file = request.files['frame']
-    
-    if file.filename == '': #Delete file in this case 
-        return jsonify({"error": "No selected file"}), 400
+
+    file   = request.files['frame']
+    obst_s = request.form.get('obstacle_locations', '[]')
+
+    print(obst_s)
+
+    obstacle_message = request.form.get('obstacle_locations', '')
+
+    # Just store the string directly
+    global latest_obstacles 
+    latest_obstacles= obstacle_message
+
     if file and allowed_file(file.filename):
-        filename = "latest_frame.jpg" 
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        filename  = "latest_frame.jpg"
+        filepath  = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(filepath)
         return jsonify({"status": "Frame received"}), 200
+
     return jsonify({"error": "File type not allowed"}), 400
+
+
+@app.route('/api/latest_obstacles')
+def latest_obstacles_api():
+    print(latest_obstacles)
+
+    return jsonify(latest_obstacles)
 
 @app.route('/api/latest_frame')
 def latest_frame():
@@ -189,7 +208,7 @@ def tcp_server():
                 chunk = conn.recv(1024)
                 if not chunk:
                     break
-                for raw in chunk.decode().splitlines(): #ESP sends all in 1 connection, splitting easier on connection
+                for raw in chunk.decode().splitlines(): #ESP sends all in 1 line, splitting easier on connection
                     with msg_lock:
                         messages.append(raw)
                     if raw.startswith("BAT:"):
