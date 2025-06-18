@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from create_db import (
     get_battery, set_battery,
-    add_telemetry, latest_telemetry   # ← NEW
+    add_telemetry, latest_telemetry   
 )
 import socket
 import threading
@@ -23,7 +23,7 @@ app.logger.setLevel(logging.DEBUG)
 TCP_IP = os.getenv("TCP_IP", "0.0.0.0")   # listen everywhere
 TCP_PORT = int(os.getenv("TCP_PORT", 12000)) #12000 is only for 
 
-messages = deque(maxlen=50)
+messages = deque(maxlen=100)
 msg_lock = Lock()
 
 esp_socket = None
@@ -54,6 +54,7 @@ def upload_frame():
     if 'frame' not in request.files:
         return jsonify({"error": "No frame part"}), 400
     file = request.files['frame']
+    
     if file.filename == '': #Delete file in this case 
         return jsonify({"error": "No selected file"}), 400
     if file and allowed_file(file.filename):
@@ -188,7 +189,7 @@ def tcp_server():
                 chunk = conn.recv(1024)
                 if not chunk:
                     break
-                for raw in chunk.decode().splitlines(): #ESP sends all in 1 line, splitting easier on connection
+                for raw in chunk.decode().splitlines(): #ESP sends all in 1 connection, splitting easier on connection
                     with msg_lock:
                         messages.append(raw)
                     if raw.startswith("BAT:"):

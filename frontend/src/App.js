@@ -4,6 +4,7 @@ import VideoStream from './components/VideoStream';
 import ParameterBox from './components/ParameterBox';
 import MessageLog from './components/MessageLog';
 import KeyIndicator from './components/Keyinput'
+import InputOutputChart from './components/InputOutputChart';
 import PowerStatus from './components/PowerStatus';
 
 
@@ -14,6 +15,7 @@ const PARAMS = [
   'Kmp', 'Kmi', 'Kmd',
   'absolutemax_tilt', 'absolutemin_tilt',
   'bias', 'turn', 'direction',
+  'K3p', 'K3i', 'K3d'
 ];
 
 function App() {
@@ -45,6 +47,7 @@ function App() {
   const sendParam = useCallback((param, value) => {
     const commands = {
       Kp: `SET_KP(${value})`, Ki: `SET_KI(${value})`, Kd: `SET_KD(${value})`,
+      K3p: `SET_K3P(${value})`, K3i: `SET_K3I(${value})`, K3d: `SET_K3D(${value})`,
       Kmp: `SET_KMP(${value})`, Kmi: `SET_KMI(${value})`, Kmd: `SET_KMD(${value})`,
       absolutemax_tilt: `MAX_TILT(${value})`, absolutemin_tilt: `MIN_TILT(${value})`,
       bias: `bias(${value})`, turn: `SET_TURN(${value})`, direction: `SET_DIR(${value})`,
@@ -91,16 +94,12 @@ function App() {
         if (e.key === 'ArrowUp') {
           sendParam('direction', 10);
           // The sound only plays if manual override is active
-          if (isManualOverrideActive) playSound('forward.mp3');
         } else if (e.key === 'ArrowDown') {
           sendParam('direction', -10);
-          if (isManualOverrideActive) playSound('backward.mp3');
         } else if (e.key === 'ArrowLeft') {
-          sendParam('turn', 20);
-          if (isManualOverrideActive) playSound('left.mp3');
+          sendParam('turn', 13);
         } else if (e.key === 'ArrowRight') {
-          sendParam('turn', -20);
-          if (isManualOverrideActive) playSound('right.mp3');
+          sendParam('turn', -13);
         }
       }
     };
@@ -134,9 +133,9 @@ function App() {
   const handleManualOverride = () => {
     // Play sound based on the action being taken
     if (isManualOverrideActive) {
-      playSound('deactivate.mp3');
+      playSound('JETWATCHTHIS.mp3');
     } else {
-      playSound('activate.mp3');
+      playSound('KAYOUltDowned4.mp3');
     }
     const newValue = isManualOverrideActive ? 0 : 1;
     sendParam('manual_override', newValue);
@@ -156,6 +155,9 @@ function App() {
             isManualOverrideActive={isManualOverrideActive}
           />
         </section>
+        <section aria-label="IO chart">
+          <InputOutputChart messages={messages} />
+        </section>  
       </section>
 
       {/* Right Section (Sidebar) */}
