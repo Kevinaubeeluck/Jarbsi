@@ -12,7 +12,7 @@ import {
   FaSyncAlt
 } from 'react-icons/fa';
 
-const API = "http://192.168.1.37:8000";
+const API = "http://192.168.92.234:8000";
 
 export default function PowerStatus() {
   const [t, setT] = useState(null); // latest telemetry object

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FaVideo, FaExclamationTriangle, FaSpinner } from 'react-icons/fa';
 
-const VideoStream = ({ apiBase, onManualOverride }) => {
+const VideoStream = ({ apiBase, onManualOverride, isManualOverrideActive }) => {
   const [imageSrc, setImageSrc] = useState('');
   const [streamError, setStreamError] = useState(false);
 
@@ -39,7 +39,7 @@ const VideoStream = ({ apiBase, onManualOverride }) => {
     padding: '0.75rem 1.5rem',
     border: 'none',
     borderRadius: '6px',
-    backgroundColor: '#e53e3e',
+    backgroundColor: isManualOverrideActive ? '#e53e3e' : '#2d3748',
     color: 'white',
     fontWeight: 'bold',
     cursor: 'pointer',
@@ -50,11 +50,27 @@ const VideoStream = ({ apiBase, onManualOverride }) => {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: '0.5rem'
+    gap: '0.5rem',
+    animation: isManualOverrideActive ? 'pulse 1.5s infinite' : 'none',
   };
   
+  const keyframes = `
+    @keyframes pulse {
+      0% {
+        box-shadow: 0 0 0 0 rgba(229, 62, 62, 0.7);
+      }
+      70% {
+        box-shadow: 0 0 0 10px rgba(229, 62, 62, 0);
+      }
+      100% {
+        box-shadow: 0 0 0 0 rgba(229, 62, 62, 0);
+      }
+    }
+  `;
+
   return (
     <div style={containerStyle}>
+      <style>{keyframes}</style>
       <h2 style={{ marginTop: 0, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
         <FaVideo aria-hidden="true" /> Live Feed
       </h2>
@@ -74,10 +90,10 @@ const VideoStream = ({ apiBase, onManualOverride }) => {
       <button
         style={buttonStyle}
         onClick={onManualOverride}
-        onMouseOver={e => e.currentTarget.style.backgroundColor = '#c53030'}
-        onMouseOut={e => e.currentTarget.style.backgroundColor = '#e53e3e'}
+        onMouseOver={e => e.currentTarget.style.backgroundColor = isManualOverrideActive ? '#c53030' : '#4a5568'}
+        onMouseOut={e => e.currentTarget.style.backgroundColor = isManualOverrideActive ? '#e53e3e' : '#2d3748'}
       >
-        <FaExclamationTriangle aria-hidden="true" /> Manual Override
+        <FaExclamationTriangle aria-hidden="true" /> {isManualOverrideActive ? 'Deactivate Manual Override' : 'Activate Manual Override'}
       </button>
     </div>
   );
