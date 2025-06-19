@@ -12,7 +12,7 @@ import {
   FaSyncAlt
 } from 'react-icons/fa';
 
-const API = "http://192.168.92.234:8000";
+const API = "http://35.174.126.245:8000";
 
 export default function PowerStatus() {
   const [t, setT] = useState(null); // latest telemetry object
@@ -153,11 +153,11 @@ const tdStyle = {
           </tr>
           <tr>
             <th scope="row" style={thStyle}>5V rail Voltage</th>
-            <td style={tdStyle}>{t.v5_volt?.toFixed(2) ?? '—'} A</td>
+            <td style={tdStyle}>{t.v5_volt?.toFixed(2) ?? '—'} V</td>
           </tr>
           <tr>
             <th scope="row" style={thStyle}>5V rail Current</th>
-            <td style={tdStyle}>{t.v5_curr?.toFixed(2) ?? '—'} V</td>
+            <td style={tdStyle}>{t.v5_curr?.toFixed(2) ?? '—'} A</td>
           </tr>
           <tr>
             <th scope="row" style={thStyle}>5V rail Power</th>

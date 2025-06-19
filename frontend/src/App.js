@@ -8,14 +8,14 @@ import InputOutputChart from './components/InputOutputChart';
 import PowerStatus from './components/PowerStatus';
 
 
-const API_BASE = "http://192.168.92.234:8000";
+const API_BASE = "http://35.174.126.245:8000";
 
 const PARAMS = [
-  'Kp', 'Ki', 'Kd',
-  'Kmp', 'Kmi', 'Kmd',
-  'absolutemax_tilt', 'absolutemin_tilt',
-  'bias', 'turn', 'direction',
-  'K3p', 'K3i', 'K3d'
+  //'Kp', 'Ki', 'Kd',
+  //'Kmp', 'Kmi', 'Kmd',
+  //'absolutemax_tilt', 'absolutemin_tilt',
+  'bias'//, 'turn', 'direction',
+ // 'K3p', 'K3i', 'K3d'
 ];
 
 function App() {

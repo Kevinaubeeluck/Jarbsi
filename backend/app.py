@@ -189,51 +189,63 @@ def get_messages():
 def tcp_server():
     global esp_socket
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) #WE CAN REUSE THE PORT!!
     server.bind((TCP_IP, TCP_PORT))
     server.listen(1)
     print(f"TCP Server listening on {TCP_IP}:{TCP_PORT}")
     while True:
-        conn, addr = server.accept()
-        print("ESP connected:", addr)
-        with esp_lock:
-            esp_socket = conn
         try:
-            bat = get_battery()
-            if bat is not None:
-                msg = f"BAT:{bat:.2f}\n"
-                conn.send(msg.encode())
-                app.logger.debug("→ sent stored battery %s to ESP", msg.strip())
-            partial = {}
-            while True:
-                chunk = conn.recv(1024)
-                if not chunk:
-                    break
-                for raw in chunk.decode().splitlines(): #ESP sends all in 1 line, splitting easier on connection
-                    with msg_lock:
-                        messages.append(raw)
-                    if raw.startswith("BAT:"):
-                        partial["bat_pct"] = float(raw.split(":",1)[1])
-                    elif raw.startswith("BATVOLT:"):
-                        partial["bat_volt"] = float(raw.split(":",1)[1])
-                    elif raw.startswith("5VVOLT:"):
-                        partial["v5_volt"]  = float(raw.split(":",1)[1])
-                    elif raw.startswith("MOTVOLT:"):
-                        partial["mot_volt"] = float(raw.split(":",1)[1])
-                    elif raw.startswith("MOTCURR:"):
-                        partial["mot_curr"] = float(raw.split(":",1)[1])
-                    elif raw.startswith("5VCURR:"):
-                        partial["v5_curr"]  = float(raw.split(":",1)[1])
-                    elif raw.startswith("5V_Power:"):
-                        partial["v5_pow"]  = float(raw.split(":",1)[1])
-                    elif raw.startswith("Motor_Power:"):
-                        partial["mot_pow"]  = float(raw.split(":",1)[1])
-                        add_telemetry(**partial)
-                        partial.clear()
-
-        finally:
-            conn.close()
+            conn, addr = server.accept()
+            print("ESP connected:", addr)
             with esp_lock:
-                esp_socket = None
+                esp_socket = conn
+            try:
+                bat = get_battery()
+                if bat is not None:
+                    msg = f"BAT:{bat:.2f}\n"
+                    conn.send(msg.encode())
+                    app.logger.debug("→ sent stored battery %s to ESP", msg.strip())
+                partial = {}
+                while True:
+                    chunk = conn.recv(1024)
+                    if not chunk:
+                        print("ESP32 disconnected cleanly")
+                        break
+                    for raw in chunk.decode().splitlines(): #ESP sends all in 1 line, splitting easier on connection
+                        with msg_lock:
+                            messages.append(raw)
+                        if raw.startswith("BAT:"):
+                            partial["bat_pct"] = float(raw.split(":",1)[1])
+                        elif raw.startswith("BATVOLT:"):
+                            partial["bat_volt"] = float(raw.split(":",1)[1])
+                        elif raw.startswith("5VVOLT:"):
+                            partial["v5_volt"]  = float(raw.split(":",1)[1])
+                        elif raw.startswith("MOTVOLT:"):
+                            partial["mot_volt"] = float(raw.split(":",1)[1])
+                        elif raw.startswith("MOTCURR:"):
+                            partial["mot_curr"] = float(raw.split(":",1)[1])
+                        elif raw.startswith("5VCURR:"):
+                            partial["v5_curr"]  = float(raw.split(":",1)[1])
+                        elif raw.startswith("5V_Power:"):
+                            partial["v5_pow"]  = float(raw.split(":",1)[1])
+                        elif raw.startswith("Motor_Power:"):
+                            partial["mot_pow"]  = float(raw.split(":",1)[1])
+                            add_telemetry(**partial)
+                            partial.clear()
+            except (ConnectionResetError, BrokenPipeError, OSError) as e:
+                print(f"Unclean disconnect with ESP: {e}")
+                
+            finally:
+                conn.close()
+                with esp_lock:
+                    esp_socket = None
+                    
+        except Exception as e:
+            # This catches errors in the server.accept() loop itself
+            print(f"Error in main TCP server loop: {e}")
+            # Optional: add a small delay to prevent rapid-fire error loops
+            import time
+            time.sleep(5)
 
 def start_tcp_thread():
     t = threading.Thread(target=tcp_server, daemon=True)

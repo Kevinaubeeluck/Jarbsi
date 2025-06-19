@@ -15,7 +15,7 @@ const VideoStream = ({ apiBase, onManualOverride, isManualOverrideActive }) => {
     const intervalId = setInterval(() => {
       const newSrc = `${apiBase}/api/latest_frame?_=${new Date().getTime()}`;
       setImageSrc(newSrc);
-    }, 200); // This refreshes at 5 frames per second(max from pi is 2 so 5 more than enough)
+    }, 50); // This refreshes at 5 frames per second(max from pi is 2 so 5 more than enough)
 
     return () => clearInterval(intervalId);
   }, [apiBase]);
@@ -116,7 +116,7 @@ useEffect(() => {
       >
         <FaExclamationTriangle aria-hidden="true" /> {isManualOverrideActive ? 'Deactivate Manual Override' : 'Activate Manual Override'}
       </button>
-      <p style={{ marginTop: '1rem', color: '#cbd5e0', fontSize: '0.9rem', textAlign: 'center' }}>
+      <p style={{ marginTop: '1rem', color: '#FF0000', fontSize: '1.5rem', textAlign: 'center' }}>
   {latestObstacleMsg || 'No obstacle data.'}
 </p>
 
