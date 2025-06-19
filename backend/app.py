@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, Response 
 from flask_cors import CORS
 from create_db import (
     get_battery, set_battery,
@@ -11,20 +11,32 @@ from threading import Lock
 import os
 import logging
 from werkzeug.utils import secure_filename
+from io import BytesIO
+import json
+
+
 
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 
-import json
 latest_obstacles = ""
+latest_frame_buffer = None
+frame_lock = Lock()
 
 logging.basicConfig(level=logging.DEBUG,
                     format="%(asctime)s [%(levelname)s] %(message)s")
 app.logger.setLevel(logging.DEBUG)
 
+
+werkzeug_logger = logging.getLogger('werkzeug')
+werkzeug_logger.setLevel(logging.WARNING)
+
 TCP_IP = os.getenv("TCP_IP", "0.0.0.0")   # listen everywhere
 TCP_PORT = int(os.getenv("TCP_PORT", 12000)) #12000 is only for 
+
+
+latest_frame_buffer = 0
 
 messages = deque(maxlen=50)
 msg_lock = Lock()
@@ -53,7 +65,7 @@ def allowed_file(filename):
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 @app.route('/api/upload_frame', methods=['POST'])
-def upload_frame():
+def upload_frame():  
     if 'frame' not in request.files:
         return jsonify({"error": "No frame part"}), 400
 
@@ -69,9 +81,14 @@ def upload_frame():
     latest_obstacles= obstacle_message
 
     if file and allowed_file(file.filename):
-        filename  = "latest_frame.jpg"
-        filepath  = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(filepath)
+        in_memory_file = BytesIO()
+        file.save(in_memory_file)
+        in_memory_file.seek(0)
+        
+        with frame_lock:
+            global latest_frame_buffer
+            latest_frame_buffer = in_memory_file.read()
+        
         return jsonify({"status": "Frame received"}), 200
 
     return jsonify({"error": "File type not allowed"}), 400
@@ -85,7 +102,15 @@ def latest_obstacles_api():
 
 @app.route('/api/latest_frame')
 def latest_frame():
-    return send_from_directory(app.config['UPLOAD_FOLDER'], "latest_frame.jpg")
+    with frame_lock:
+        frame_data = latest_frame_buffer
+    
+    if frame_data:
+        # Serve the image directly from the in-memory bytes
+        return Response(frame_data, mimetype='image/jpeg')
+    else:
+        # Return a 404 or a placeholder image if no frame has been received yet
+        return "No frame available", 404
 
 
 

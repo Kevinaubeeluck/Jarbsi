@@ -8,7 +8,7 @@ import InputOutputChart from './components/InputOutputChart';
 import PowerStatus from './components/PowerStatus';
 
 
-const API_BASE = "http://35.174.126.245:8000";
+const API_BASE = "http://192.168.145.234:8000";
 
 const PARAMS = [
   //'Kp', 'Ki', 'Kd',
@@ -20,13 +20,11 @@ const PARAMS = [
 
 function App() {
   const activeKeyRef = useRef(null);
-  const audioRef = useRef(null); // Ref to store the current Audio object
+  const audioRef = useRef(null); 
   const [values, setValues] = useState({});
   const [messages, setMessages] = useState([]);
   const [isManualOverrideActive, setIsManualOverrideActive] = useState(false);
 
-  // --- Audio Playback Handler ---
-  // This function handles playing sounds and stopping previous ones.
   const playSound = useCallback((soundFile) => {
     if (audioRef.current) {
       audioRef.current.pause();
@@ -58,7 +56,7 @@ function App() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ command: commands[param] })
     }).then(fetchMessages);
-  }, [fetchMessages]); // Depends on fetchMessages
+  }, [fetchMessages]); 
 
   const fetchPID = useCallback((force = false) => {
     fetch(`${API_BASE}/api/current_values${force ? '?force=true' : ''}`)
@@ -90,10 +88,8 @@ function App() {
       if (activeKeyRef.current !== e.key && controlKeys.includes(e.key)) {
         activeKeyRef.current = e.key;
 
-        // The sendParam command always runs
         if (e.key === 'ArrowUp') {
           sendParam('direction', 10);
-          // The sound only plays if manual override is active
         } else if (e.key === 'ArrowDown') {
           sendParam('direction', -10);
         } else if (e.key === 'ArrowLeft') {
@@ -111,7 +107,7 @@ function App() {
             audioRef.current.pause();
             audioRef.current.currentTime = 0;
         }
-        // Always send the stop command
+        
         if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
             sendParam('direction', 0);
         }
@@ -128,10 +124,10 @@ function App() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [isManualOverrideActive, playSound, sendParam]); // Correct dependencies
+  }, [isManualOverrideActive, playSound, sendParam]); 
 
   const handleManualOverride = () => {
-    // Play sound based on the action being taken
+    
     if (isManualOverrideActive) {
       playSound('JETWATCHTHIS.mp3');
     } else {
@@ -142,7 +138,7 @@ function App() {
     setIsManualOverrideActive(newValue === 1);
   };
 
-  // --- JSX Return ---
+  
   return (
     <main style={{ display: 'flex', flexDirection: 'row', gap: '20px', padding: '20px',color: 'white' , backgroundColor: '#1a202c', minHeight: '100vh' }}>
       {/* Left Section */}
