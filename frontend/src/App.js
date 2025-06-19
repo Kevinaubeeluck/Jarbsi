@@ -8,7 +8,7 @@ import InputOutputChart from './components/InputOutputChart';
 import PowerStatus from './components/PowerStatus';
 
 
-const API_BASE = "http://192.168.145.234:8000";
+const API_BASE = "http://35.174.126.245:8000";
 
 const PARAMS = [
   //'Kp', 'Ki', 'Kd',
